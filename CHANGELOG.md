@@ -15,6 +15,8 @@
   SHA-1), google-services.json, clés Sign in with Apple et APNs, jeton du
   dépôt des certificats iOS.
 - Reprise de l'ancienne sauvegarde des scripts PowerShell.
+- Lanceur : un dossier du kit copié sans Git se relie à GitHub sur place
+  (bouton « Relier à GitHub et mettre à jour »), sans rien supprimer.
 
 ## 0.1.0 — 2026-11-27
 
