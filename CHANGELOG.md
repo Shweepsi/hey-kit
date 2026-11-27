@@ -1,5 +1,13 @@
 # Journal des versions
 
+## 0.2.3 — 2026-11-27
+
+- Clé Android : keytool est lancé en anglais. Sur un Windows en français, il
+  écrivait « SHA1 : » et le kit ne trouvait pas l'empreinte.
+- Échec de Java : message précis (mot de passe de la clé qui ne correspond
+  pas, clé absente du fichier), sinon la ligne d'erreur de keytool.
+- Lanceur : vérifie aussi Java (facultatif, seulement pour la clé Android).
+
 ## 0.2.2 — 2026-11-27
 
 - Mes apps : un badge global « En place » ou « À faire » par carte, et l'état

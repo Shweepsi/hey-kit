@@ -339,6 +339,25 @@ function nouvelleValeur(genre) {
   return `${groupe()}-${groupe()}-${groupe()}`;
 }
 
+// keytool traduit ses messages selon la langue de Windows (« SHA1 : » en
+// français) : on le fait parler anglais pour lire sa réponse.
+const KEYTOOL_ANGLAIS = ["-J-Duser.language=en", "-J-Duser.country=US"];
+
+// Échec de keytool : cause reconnue, sinon sa première ligne d'erreur (jamais
+// de secret : keytool ne répète ni le mot de passe ni la clé).
+function echecKeytool(resultat) {
+  const texte = `${resultat.erreur}\n${resultat.sortie}`;
+  if (/password was incorrect|Keystore was tampered/i.test(texte)) return new ErreurCoffre("keystore-mot-de-passe");
+  if (/Alias <[^>]*> does not exist/i.test(texte)) return new ErreurCoffre("keystore-alias");
+  const erreur = new ErreurCoffre("keytool-echec");
+  const ligne = texte
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => /error|exception/i.test(l));
+  if (ligne) erreur.detail = ligne.replace(/[^\x20-\x7E]/g, "").slice(0, 200);
+  return erreur;
+}
+
 // Crée la clé de signature Android avec keytool, dans un dossier temporaire
 // effacé ensuite, et la range dans le coffre avec sa phrase secrète.
 async function creerKeystore(coffre, definition, outils) {
@@ -351,6 +370,7 @@ async function creerKeystore(coffre, definition, outils) {
     const resultat = await outils.executer(
       keytool,
       [
+        ...KEYTOOL_ANGLAIS,
         "-genkeypair",
         "-keystore",
         "cle.jks",
@@ -374,7 +394,7 @@ async function creerKeystore(coffre, definition, outils) {
       { cwd: temporaire, env: { HEY_KIT_MDP: motDePasse } },
     );
     const contenu = resultat.code === 0 ? await fs.readFile(path.join(temporaire, "cle.jks")).catch(() => null) : null;
-    if (!contenu || contenu.length === 0) throw new ErreurCoffre("keytool-echec");
+    if (!contenu || contenu.length === 0) throw echecKeytool(resultat);
     await coffre.ecrire(definition.dossier, "ANDROID_KEYSTORE_PASSWORD", { type: "texte", valeur: motDePasse });
     await coffre.ecrire(definition.dossier, "ANDROID_KEYSTORE", {
       type: "fichier",
@@ -411,7 +431,12 @@ export async function envoyerApp(coffre, id, { fetchFn = fetch, outils, remplace
       await creerKeystore(coffre, definition, outils);
       resultats.push({ nom: "ANDROID_KEYSTORE", destination: "coffre", resultat: "genere" });
     } catch (erreur) {
-      resultats.push({ nom: "ANDROID_KEYSTORE", destination: "coffre", resultat: erreur.code ?? "echec" });
+      resultats.push({
+        nom: "ANDROID_KEYSTORE",
+        destination: "coffre",
+        resultat: erreur.code ?? "echec",
+        ...(erreur.detail ? { detail: erreur.detail } : {}),
+      });
     }
   }
 
@@ -499,11 +524,11 @@ export async function empreinteAndroid(coffre, id, { outils }) {
     await fs.writeFile(path.join(temporaire, "cle.jks"), Buffer.from(keystore.valeur, "base64"), { mode: 0o600 });
     const resultat = await outils.executer(
       keytool,
-      ["-list", "-v", "-keystore", "cle.jks", "-alias", definition.aliasAndroid, "-storepass:env", "HEY_KIT_MDP"],
+      [...KEYTOOL_ANGLAIS, "-list", "-v", "-keystore", "cle.jks", "-alias", definition.aliasAndroid, "-storepass:env", "HEY_KIT_MDP"],
       { cwd: temporaire, env: { HEY_KIT_MDP: motDePasse.valeur } },
     );
-    const sha1 = /SHA-?1:\s*([0-9A-F]{2}(?::[0-9A-F]{2}){19})/.exec(resultat.sortie)?.[1];
-    if (!sha1) throw new ErreurCoffre("keytool-echec");
+    const sha1 = /SHA-?\s?1\s*:\s*([0-9A-F]{2}(?::[0-9A-F]{2}){19})/i.exec(resultat.sortie)?.[1];
+    if (resultat.code !== 0 || !sha1) throw echecKeytool(resultat);
     return { sha1 };
   } finally {
     await fs.rm(temporaire, { recursive: true, force: true });

@@ -241,7 +241,7 @@ export function creerServeur({
     } catch (probleme) {
       if (probleme instanceof ErreurCoffre) {
         const statut = probleme.code === "verrouille" ? 423 : probleme.code === "mot-de-passe" ? 401 : 400;
-        return erreur(res, statut, probleme.code);
+        return envoyer(res, statut, { erreur: probleme.code, ...(probleme.detail ? { detail: probleme.detail } : {}) });
       }
       return erreur(res, 500, "interne");
     }

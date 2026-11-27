@@ -18,12 +18,15 @@ const ERREURS = {
   "trop-gros": "Fichier trop gros (2 Mo au plus).",
   "keytool-absent": "Java (keytool) introuvable : installe Android Studio, ou un JDK 17 (winget install --id EclipseAdoptium.Temurin.17.JDK -e), puis réessaie.",
   "keytool-echec": "Java n'a pas pu lire ou créer la clé Android.",
+  "keystore-mot-de-passe": "Le mot de passe de la clé Android rangé dans le coffre ne correspond pas au fichier de la clé. Rien n'a été modifié : vérifie ANDROID_KEYSTORE_PASSWORD dans l'onglet Coffre.",
+  "keystore-alias": "Le fichier de la clé Android ne contient pas la clé « heywatchlist ». Rien n'a été modifié.",
   "keystore-absent": "La clé Android n'est pas dans le coffre : reprends l'ancienne sauvegarde ou lance un envoi.",
   "requete-invalide": "Requête refusée par le kit.",
   session: "Session expirée : relance le kit et ouvre le nouveau lien.",
   reseau: "Le kit ne répond plus : la fenêtre où il tourne a peut-être été fermée.",
 };
-const erreurTexte = (code) => ERREURS[code] ?? "Erreur inattendue.";
+// `detail` : message technique (en anglais) d'un outil comme Java, sans secret.
+const erreurTexte = (code, detail) => `${ERREURS[code] ?? "Erreur inattendue."}${detail ? ` Détail : ${detail}` : ""}`;
 
 // Libellés et guides de chaque connexion. Chaque étape a été relue dans la
 // documentation officielle citée en source, à la date de VERIFIE_LE.
@@ -158,7 +161,9 @@ async function api(chemin, corps) {
   const donnees = await reponse.json().catch(() => ({}));
   if (!reponse.ok) {
     if (donnees.erreur === "verrouille") setTimeout(demarrer, 0);
-    throw new Error(donnees.erreur ?? "interne");
+    const probleme = new Error(donnees.erreur ?? "interne");
+    if (typeof donnees.detail === "string") probleme.detail = donnees.detail;
+    throw probleme;
   }
   return donnees;
 }
@@ -562,9 +567,15 @@ async function envoyerApp(id, remplacer = []) {
   const generes = resultats.filter((r) => r.resultat === "genere").map((r) => r.nom);
   const morceaux = [`${envoyes} valeur${envoyes > 1 ? "s" : ""} envoyée${envoyes > 1 ? "s" : ""}.`];
   if (generes.includes("BOOTSTRAP_CODE")) morceaux.push("Un code administrateur a été créé : affiche-le dans la liste.");
-  const premierBlocage = echecs.find((r) => r.resultat === "gh-absent" || r.resultat.startsWith("keytool"));
-  if (premierBlocage) morceaux.push(RESULTATS[premierBlocage.resultat]);
-  const autres = echecs.filter((r) => !(r.resultat === "gh-absent" || r.resultat.startsWith("keytool")));
+  const bloquant = (r) => r.resultat === "gh-absent" || /^(keytool|keystore)-/.test(r.resultat);
+  const premierBlocage = echecs.find(bloquant);
+  if (premierBlocage) {
+    morceaux.push(
+      RESULTATS[premierBlocage.resultat] ?? erreurTexte(premierBlocage.resultat),
+      premierBlocage.detail ? `Détail : ${premierBlocage.detail}` : "",
+    );
+  }
+  const autres = echecs.filter((r) => !bloquant(r));
   if (autres.length > 0) {
     morceaux.push(`Non envoyé : ${autres.map((r) => `${r.nom} (${RESULTATS[r.resultat] ?? "échec"})`).join(", ")}.`);
   }
@@ -581,7 +592,7 @@ function boutonAction(texte, action, classe = "bouton secondaire") {
     try {
       await action(bouton);
     } catch (probleme) {
-      annoncer(erreurTexte(probleme.message), "erreur");
+      annoncer(erreurTexte(probleme.message, probleme.detail), "erreur");
     } finally {
       bouton.disabled = false;
     }
