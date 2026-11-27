@@ -20,6 +20,17 @@ Le navigateur s'ouvre sur la page du kit. S'il ne s'ouvre pas, copie le lien
 affiché dans la fenêtre. Ferme la fenêtre (ou Ctrl+C) pour arrêter le kit : le
 coffre est verrouillé.
 
+## L'app de lancement (Windows)
+
+`lanceur/index.html` est la source d'un artefact Claude qui s'installe comme
+app Windows : une icône dans la barre des tâches. Il vérifie Node et Git,
+télécharge le kit (`git clone`), le démarre, ouvre la page, et l'arrête à la
+fermeture de sa fenêtre, ce qui verrouille le coffre. Il ne lit jamais le
+coffre. Il demande une fois l'accès « fichiers et programmes » de ce PC.
+
+Artefact publié : https://claude.ai/artifact/JEkAZ46sz6eCT5zTCNrNFL (ouvrir
+dans l'app Claude pour Windows, puis « Installer l'app »).
+
 ## Le coffre
 
 - Un seul fichier : `Documents\hey-kit\coffre.hey-kit` (ou le dossier indiqué

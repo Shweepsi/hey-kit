@@ -11,3 +11,5 @@
   guides pas à pas tirés des documentations officielles et vérification en
   lecture seule.
 - Page Coffre : liste sans valeurs, ajout, remplacement, suppression.
+- App de lancement Windows (artefact Claude installable, `lanceur/`) :
+  vérifie Node et Git, télécharge, démarre et arrête le kit.
