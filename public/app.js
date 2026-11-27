@@ -380,6 +380,8 @@ const ELEMENTS = {
   APPLE_SIGNIN_PRIVATE_KEY: "Clé Sign in with Apple : fichier .p8",
   APNS_KEY_ID: "Clé APNs : Key ID",
   APNS_PRIVATE_KEY: "Clé APNs : fichier .p8",
+  PLAY_SERVICE_ACCOUNT_JSON: "Compte de service Google Play (fichier .json)",
+  PRIVACY_CONTACT: "E-mail de contact (politique de confidentialité)",
 };
 
 const SOURCES = {
@@ -489,6 +491,44 @@ const SAISIES = [
       "Ce fichier n'est pas secret au sens strict, mais le kit le range quand même dans le coffre. Il se retélécharge à tout moment depuis la console.",
     ],
     sources: [["Ajouter Firebase à une app Android", "https://firebase.google.com/docs/android/setup"]],
+  },
+  {
+    titre: "Envoi automatique sur Google Play",
+    elements: ["PLAY_SERVICE_ACCOUNT_JSON"],
+    liens: [
+      ["Activer l'API", `https://console.developers.google.com/apis/api/androidpublisher.googleapis.com/?project=${PROJET_GOOGLE}`],
+      ["Comptes de service", `https://console.cloud.google.com/iam-admin/serviceaccounts?project=${PROJET_GOOGLE}`],
+      ["Utilisateurs Play Console", "https://play.google.com/console/users-and-permissions"],
+    ],
+    etapes: [
+      "À faire après la création de l'app dans la Play Console et le premier AAB déposé à la main (docs/PUBLICATION.md du dépôt, étape 6).",
+      `Activer l'API : vérifie que le projet est ${PROJET_GOOGLE}, puis Enable sur « Google Play Android Developer API ».`,
+      "Comptes de service : « Create service account », nom « HeyWatchlist Play ». Aucun rôle Google Cloud à donner : Done. Copie son adresse (…@….iam.gserviceaccount.com).",
+      "Clique sur ce compte, onglet Keys, « Add key » > « Create new key », type JSON, Create : un fichier .json arrive dans Téléchargements. Glisse-le ci-dessous, puis supprime-le de Téléchargements.",
+      "Play Console, Utilisateurs et autorisations : « Inviter de nouveaux utilisateurs », colle l'adresse du compte de service, donne-lui l'accès à l'app HeyWatchlist avec les autorisations de publication sur les canaux de test, puis Inviter.",
+    ],
+    attention: [
+      "Non confirmé par la documentation : le nom exact des autorisations de l'app dans la Play Console. Choisis celles qui parlent de publier et de gérer les versions de test, rien sur la production ni les finances.",
+      "Ce fichier donne le droit de publier l'app : il ne va que dans le coffre et le secret GitHub, jamais dans un chat ni un dépôt.",
+    ],
+    sources: [
+      ["API Google Play Developer, premiers pas", "https://developers.google.com/android-publisher/getting_started"],
+      ["Créer une clé de compte de service", "https://docs.cloud.google.com/iam/docs/keys-create-delete"],
+    ],
+  },
+  {
+    titre: "Contact de la politique de confidentialité",
+    elements: ["PRIVACY_CONTACT"],
+    liens: [],
+    etapes: [
+      "Saisis l'adresse e-mail à laquelle tes invités peuvent écrire pour leurs données : elle s'affiche sur les pages /confidentialite et /suppression-du-compte du serveur, que les stores demandent.",
+      "Après l'envoi, ouvre ces deux pages (adresse du serveur suivie de /confidentialite) pour vérifier.",
+    ],
+    attention: ["Cette adresse sera publique : utilise une adresse dédiée si tu préfères."],
+    sources: [
+      ["App Store : politique de confidentialité (5.1.1)", "https://developer.apple.com/app-store/review/guidelines/"],
+      ["Google Play : suppression du compte", "https://support.google.com/googleplay/android-developer/answer/13327111"],
+    ],
   },
   {
     titre: "Clé Sign in with Apple",

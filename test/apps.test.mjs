@@ -134,6 +134,8 @@ test("premier envoi : tout ce qui est disponible part, rien n'est relu", async (
     "GOOGLE_SERVICES_JSON",
     "GOOGLE_WEB_CLIENT_ID",
     "MATCH_GIT_TOKEN",
+    "PLAY_SERVICE_ACCOUNT_JSON",
+    "PRIVACY_CONTACT",
   ]);
   assert.ok(!JSON.stringify(apres).includes("jeton-cf"));
 });
@@ -204,6 +206,19 @@ test("saisie : formats vérifiés, identifiant de clé Apple lu dans le nom du f
     JSON.stringify({ project_info: { project_id: "p" }, client: [{ client_info: { android_client_info: { package_name: "io.github.shweepsi.heywatchlist" } } }] }),
   );
   assert.equal((await saisir(coffre, "heywatchlist", "GOOGLE_SERVICES_JSON", { valeur: bon })).etat, "ok");
+
+  // Compte de service Google Play : JSON de type service_account, clé RSA lisible.
+  const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const compte = (champs) =>
+    b64(JSON.stringify({ type: "service_account", client_email: "ci@p.iam.gserviceaccount.com", private_key: privateKey.export({ type: "pkcs8", format: "pem" }), ...champs }));
+  assert.equal((await saisir(coffre, "heywatchlist", "PLAY_SERVICE_ACCOUNT_JSON", { valeur: compte({ type: "authorized_user" }) })).etat, "invalide");
+  assert.equal((await saisir(coffre, "heywatchlist", "PLAY_SERVICE_ACCOUNT_JSON", { valeur: compte({ private_key: "abîmée" }) })).etat, "invalide");
+  assert.equal((await saisir(coffre, "heywatchlist", "PLAY_SERVICE_ACCOUNT_JSON", { valeur: b64("pas du json") })).etat, "invalide");
+  assert.equal((await saisir(coffre, "heywatchlist", "PLAY_SERVICE_ACCOUNT_JSON", { valeur: compte({}) })).etat, "ok");
+
+  assert.equal((await saisir(coffre, "heywatchlist", "PRIVACY_CONTACT", { valeur: "pas une adresse" })).etat, "invalide");
+  assert.equal((await saisir(coffre, "heywatchlist", "PRIVACY_CONTACT", { valeur: " contact@example.com " })).etat, "ok");
+  assert.equal(coffre.lire("HeyWatchlist", "PRIVACY_CONTACT").valeur, "contact@example.com");
 
   await assert.rejects(saisir(coffre, "heywatchlist", "CREDENTIALS_KEY", { valeur: "x" }), { code: "requete-invalide" });
 });
