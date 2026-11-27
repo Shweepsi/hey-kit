@@ -25,6 +25,7 @@ export const FORMATS = {
   "client-google": /^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/,
   "id-cle-apple": /^[A-Z0-9]{10}$/,
   "jeton-github-fin": /^github_pat_[A-Za-z0-9_]+$/,
+  "e-mail": /^[^\s@<>"]{1,64}@[^\s@<>"]{1,190}\.[a-z]{2,24}$/i,
 };
 
 // Sources : commun (dossier Commun du coffre), saisie (dossier de l'app),
@@ -67,6 +68,8 @@ const HEYWATCHLIST = {
     { nom: "ANDROID_KEY_ALIAS", vers: ["secret"], source: { type: "fixe", valeur: "heywatchlist" } },
     { nom: "ANDROID_KEY_PASSWORD", vers: ["secret"], source: { type: "keystore", cle: "ANDROID_KEYSTORE_PASSWORD" } },
     { nom: "GOOGLE_SERVICES_JSON", vers: ["secret"], source: { type: "saisie", fichier: "google-services" } },
+    // CI : envoi de l'AAB public sur le test fermé Google Play
+    { nom: "PLAY_SERVICE_ACCOUNT_JSON", vers: ["secret"], source: { type: "saisie", fichier: "compte-service" } },
     // Worker
     { nom: "SESSION_SIGNING_KEY", vers: ["worker"], source: { type: "genere", genre: "cle32" } },
     { nom: "CREDENTIALS_KEY", vers: ["worker"], source: { type: "genere", genre: "cle32", conserver: true } },
@@ -79,6 +82,8 @@ const HEYWATCHLIST = {
     { nom: "APPLE_SIGNIN_PRIVATE_KEY", vers: ["worker"], source: { type: "saisie", fichier: "p8", cleId: "APPLE_SIGNIN_KEY_ID" } },
     { nom: "APNS_KEY_ID", vers: ["worker"], source: { type: "saisie", format: "id-cle-apple" } },
     { nom: "APNS_PRIVATE_KEY", vers: ["worker"], source: { type: "saisie", fichier: "p8", cleId: "APNS_KEY_ID" } },
+    // Contact affiché par la politique de confidentialité du Worker.
+    { nom: "PRIVACY_CONTACT", vers: ["worker"], source: { type: "saisie", format: "e-mail" } },
   ],
 };
 
@@ -312,6 +317,26 @@ function verifierGoogleServices(base64, bundle) {
   }
 }
 
+// Clé JSON d'un compte de service Google : la clé privée doit être lisible.
+function verifierCompteService(base64) {
+  try {
+    const contenu = JSON.parse(decoder(base64));
+    return (
+      contenu?.type === "service_account" &&
+      typeof contenu.client_email === "string" &&
+      createPrivateKey(String(contenu.private_key)).asymmetricKeyType === "rsa"
+    );
+  } catch {
+    return false;
+  }
+}
+
+const VERIFIER_FICHIER = {
+  p8: (valeur) => verifierP8(valeur),
+  "google-services": (valeur, definition) => verifierGoogleServices(valeur, definition.bundle),
+  "compte-service": (valeur) => verifierCompteService(valeur),
+};
+
 // Enregistre une valeur saisie dans le dossier de l'app. Pour une clé Apple,
 // l'identifiant est lu dans le nom du fichier AuthKey_XXXXXXXXXX.p8.
 export async function saisir(coffre, id, nom, { valeur, nomFichier }) {
@@ -320,7 +345,7 @@ export async function saisir(coffre, id, nom, { valeur, nomFichier }) {
   const source = element.source;
   if (source.type !== "saisie" || typeof valeur !== "string" || valeur === "") throw new ErreurCoffre("requete-invalide");
   if (source.fichier) {
-    const valide = source.fichier === "p8" ? verifierP8(valeur) : verifierGoogleServices(valeur, definition.bundle);
+    const valide = VERIFIER_FICHIER[source.fichier](valeur, definition);
     if (!valide) return { etat: "invalide" };
     await coffre.ecrire(definition.dossier, nom, { type: "fichier", valeur, nomFichier: nomFichier ?? null });
     const idCle = /^AuthKey_([A-Z0-9]{10})\.p8$/.exec(String(nomFichier ?? ""))?.[1];

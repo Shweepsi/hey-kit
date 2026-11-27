@@ -1,5 +1,15 @@
 # Journal des versions
 
+## 0.4.0 — 2026-11-27
+
+- Mes apps, HeyWatchlist : deux nouvelles valeurs pour la publication.
+  `PLAY_SERVICE_ACCOUNT_JSON` (secret GitHub), la clé JSON du compte de
+  service qui envoie l'AAB sur le test fermé Google Play, vérifiée avant
+  l'envoi (type `service_account`, clé RSA lisible). `PRIVACY_CONTACT`
+  (serveur), l'e-mail affiché par la politique de confidentialité.
+- Guides « Envoi automatique sur Google Play » et « Contact de la politique de
+  confidentialité », avec leurs sources.
+
 ## 0.3.1 — 2026-11-27
 
 - Plantages : le kit vérifie d'abord l'export (liste des tables du dataset
