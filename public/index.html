@@ -15,6 +15,7 @@
       <nav id="onglets" class="onglets" hidden>
         <button type="button" data-onglet="connexions" aria-pressed="true">Connexions</button>
         <button type="button" data-onglet="apps" aria-pressed="false">Mes apps</button>
+        <button type="button" data-onglet="plantages" aria-pressed="false">Plantages</button>
         <button type="button" data-onglet="coffre" aria-pressed="false">Coffre</button>
         <button type="button" data-onglet="reglages" aria-pressed="false">Réglages</button>
       </nav>
@@ -76,6 +77,16 @@
           crée les clés internes et te guide pour le reste. Il ne remplace jamais une clé qui ferait casser l'existant.
         </p>
         <div id="liste-apps"></div>
+      </section>
+
+      <!-- Plantages des apps, lus dans l'export Crashlytics -->
+      <section id="vue-plantages" hidden>
+        <h1>Plantages</h1>
+        <p class="intro">
+          Les plantages remontés par Crashlytics, regroupés par problème. Le bouton « Copier le rapport » donne un texte
+          sans secret ni donnée personnelle, à coller tel quel dans la discussion avec Claude.
+        </p>
+        <div id="liste-plantages"></div>
       </section>
 
       <!-- Contenu du coffre -->

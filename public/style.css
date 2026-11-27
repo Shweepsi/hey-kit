@@ -376,3 +376,13 @@ a {
   gap: 8px;
   flex-wrap: wrap;
 }
+
+.rapport {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+.bouton[aria-pressed="true"] {
+  outline: 2px solid currentColor;
+}

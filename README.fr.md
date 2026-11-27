@@ -49,6 +49,7 @@ dans l'app Claude pour Windows, puis « Installer l'app »).
 | --- | --- |
 | Connexions | GitHub, Cloudflare, Apple, Google (Firebase), TMDB : guide pas à pas, saisie, vérification en lecture seule. |
 | Mes apps | Pour HeyWatchlist : ce que GitHub (secrets, variables) et le Worker attendent, envoi de ce qui manque, création des clés internes, guides Google et Apple pour le reste. |
+| Plantages | Plantages Crashlytics de HeyWatchlist, lus dans l'export BigQuery, et rapport sans secret à copier pour Claude. |
 | Coffre | Liste des clés par dossier (sans les valeurs), ajout, remplacement, suppression. |
 | Réglages | Emplacement du coffre, changement du mot de passe maître. |
 

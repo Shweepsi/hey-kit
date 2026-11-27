@@ -1,5 +1,16 @@
 # Journal des versions
 
+## 0.3.0 — 2026-11-27
+
+- Page Plantages : les plantages Crashlytics de HeyWatchlist (app publique et
+  admin), lus dans l'export BigQuery avec le compte de service Google du
+  coffre, regroupés par problème, sur 24 heures, 7 ou 30 jours. Requête en
+  lecture seule, plafonnée à 1 Go lu.
+- Bouton « Copier le rapport pour Claude » : un rapport Markdown sans secret
+  ni donnée personnelle (e-mails, paramètres d'URL et longues clés masqués).
+- Guide pour activer l'export BigQuery et donner les deux rôles de lecture au
+  compte de service.
+
 ## 0.2.3 — 2026-11-27
 
 - Clé Android : keytool est lancé en anglais. Sur un Windows en français, il

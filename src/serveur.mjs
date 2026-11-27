@@ -18,6 +18,7 @@ import { ErreurCoffre } from "./coffre.mjs";
 import { APPS, afficher, empreinteAndroid, envoyerApp, etatApp, importerAncien, saisir } from "./apps.mjs";
 import { CONNEXIONS, DOSSIER_COMMUN, connexion, formatValide, verifier } from "./connexions.mjs";
 import { creerOutils } from "./outils.mjs";
+import { lirePlantages, rapport } from "./plantages.mjs";
 
 const TAILLE_MAX = 2 * 1024 * 1024;
 const COOKIE = "hey_kit";
@@ -188,7 +189,7 @@ export function creerServeur({
       if (!coffre.ouvert) throw new ErreurCoffre("verrouille");
       return { verification: await verifierEtNoter(id) };
     },
-    "GET /api/apps": async () => ({ apps: APPS.map(({ id, nom }) => ({ id, nom })) }),
+    "GET /api/apps": async () => ({ apps: APPS.map(({ id, nom, crashlytics }) => ({ id, nom, plantages: Boolean(crashlytics) })) }),
     "POST /api/apps/etat": async ({ id }) => etatApp(coffre, id, { fetchFn }),
     "POST /api/apps/saisir": async ({ id, nom, valeur, nomFichier }) => saisir(coffre, id, nom, { valeur, nomFichier }),
     "POST /api/apps/envoyer": async ({ id, remplacer }) => {
@@ -197,6 +198,11 @@ export function creerServeur({
     },
     "POST /api/apps/importer-ancien": async ({ id }) => importerAncien(coffre, id, accueil ? { accueil } : {}),
     "POST /api/apps/afficher": async ({ id, nom }) => afficher(coffre, id, nom),
+    "POST /api/plantages": async ({ id, jours }) => {
+      const resultat = await lirePlantages(coffre, id, { jours, fetchFn });
+      if (resultat.etat !== "ok") return resultat;
+      return { ...resultat, rapport: rapport(APPS.find((item) => item.id === id).nom, resultat) };
+    },
     "POST /api/apps/empreinte": async ({ id }) => {
       outils.oublier();
       return empreinteAndroid(coffre, id, { outils });

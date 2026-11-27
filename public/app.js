@@ -199,8 +199,8 @@ let etat = null;
 let onglet = "connexions";
 
 function montrer(vue) {
-  for (const id of ["creer", "ouvrir", "connexions", "apps", "coffre", "reglages"]) $(`#vue-${id}`).hidden = id !== vue;
-  const ouvert = ["connexions", "apps", "coffre", "reglages"].includes(vue);
+  for (const id of ["creer", "ouvrir", "connexions", "apps", "plantages", "coffre", "reglages"]) $(`#vue-${id}`).hidden = id !== vue;
+  const ouvert = ["connexions", "apps", "plantages", "coffre", "reglages"].includes(vue);
   $("#onglets").hidden = !ouvert;
   $("#verrouiller").hidden = !ouvert;
   for (const bouton of document.querySelectorAll("[data-onglet]")) {
@@ -230,6 +230,7 @@ async function afficherOnglet(nom) {
   montrer(nom);
   if (nom === "connexions") await afficherConnexions();
   if (nom === "apps") await afficherApps();
+  if (nom === "plantages") await afficherPlantages();
   if (nom === "coffre") await afficherCoffre();
 }
 
@@ -832,6 +833,187 @@ async function afficherApps() {
     vues.push(vueApp(app));
   }
   $("#liste-apps").replaceChildren(...vues);
+}
+
+// --- Plantages -----------------------------------------------------------------
+
+const PROJET_FIREBASE = "heywatchlist-60448";
+const GUIDE_PLANTAGES = {
+  etapes: [
+    "Console Firebase, projet heywatchlist-60448 : roue Paramètres, page Integrations. Dans la carte BigQuery, clique sur Link, puis suis les écrans en gardant Crashlytics coché.",
+    "Si la console propose « Include streaming » (formule Blaze seulement), coche-le : les plantages arrivent alors dans l'heure. Sinon, l'export se fait une fois par jour.",
+    "Attends le premier export : jusqu'à 48 heures selon Firebase (une heure environ avec le streaming).",
+    "Console Google Cloud, page IAM du même projet : donne au compte de service indiqué ci-dessous les rôles « BigQuery Job User » (lancer une requête) et « BigQuery Data Viewer » (lire les tables).",
+    "Reviens ici et clique sur « Lire les plantages ».",
+  ],
+  attention: [
+    "Le kit ne fait que lire : requête en lecture seule, limitée à 1 Go de données lues pour ne jamais coûter cher.",
+    "Les libellés exacts de la page IAM (bouton pour accorder l'accès) n'ont pas pu être relus dans la documentation : fie-toi aux noms des rôles.",
+  ],
+  sources: [
+    ["Exporter Crashlytics vers BigQuery", "https://firebase.google.com/docs/crashlytics/bigquery-export"],
+    ["Schéma des tables", "https://firebase.google.com/docs/crashlytics/bigquery-dataset-schema"],
+    ["Rôles BigQuery", "https://cloud.google.com/bigquery/docs/access-control"],
+  ],
+};
+
+const ETATS_PLANTAGES = {
+  incomplet: "Ajoute d'abord le compte de service Google (Firebase) dans Connexions.",
+  invalide: "Le compte de service Google du coffre est illisible : remplace-le dans Connexions.",
+  refuse: "Google refuse la clé du compte de service : elle a peut-être été supprimée. Remplace-la dans Connexions.",
+  "pas-encore": "Pas encore de données : l'export BigQuery de Crashlytics n'est pas activé, ou le premier export n'est pas arrivé (jusqu'à 48 heures). Suis le guide ci-dessous.",
+  interdit: "Le compte de service n'a pas le droit de lire BigQuery : donne-lui les deux rôles de l'étape 4 du guide.",
+  facturation: "BigQuery refuse la requête pour une raison de facturation ou de quota du projet Google Cloud.",
+  plafond: "La requête lirait plus de 1 Go : choisis une période plus courte.",
+  lent: "BigQuery n'a pas fini à temps : réessaie dans un instant.",
+  requete: "BigQuery n'a pas compris la requête : le format de l'export a peut-être changé. Envoie ce message à Claude.",
+  injoignable: "Google injoignable (réseau, proxy ou antivirus) : réessaie plus tard.",
+};
+
+let periodePlantages = 7;
+
+function dateCourte(iso) {
+  if (!iso) return "?";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? "?"
+    : d.toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+function carteProbleme(p) {
+  const fatal = /FATAL/i.test(p.type ?? "") && !/NON_FATAL/i.test(p.type ?? "");
+  const cause = [p.cause.symbole, p.cause.fichier && `${p.cause.fichier}${p.cause.ligne ? `:${p.cause.ligne}` : ""}`]
+    .filter(Boolean)
+    .join(" · ");
+  return element(
+    "div",
+    { classe: "carte" },
+    element(
+      "div",
+      { classe: "entete" },
+      element("h2", { texte: p.exception ?? p.type ?? "Problème" }),
+      element(
+        "div",
+        { classe: "etat" },
+        element("span", { classe: `badge ${fatal ? "erreur" : "attente"}`, texte: fatal ? "Plantage" : p.type ?? "Erreur" }),
+        element("span", { classe: "badge attente", texte: p.edition === "admin" ? "App admin" : "App publique" }),
+      ),
+    ),
+    element("p", {
+      texte: `${p.evenements} fois sur ${p.appareils} appareil${p.appareils > 1 ? "s" : ""}, du ${dateCourte(p.premier)} au ${dateCourte(p.dernier)}.`,
+    }),
+    element("p", {
+      classe: "discret",
+      texte: `Version ${p.version ?? "?"}${p.build ? ` (${p.build})` : ""} · ${p.appareil ?? "appareil inconnu"}`,
+    }),
+    p.message ? element("p", {}, element("code", { texte: p.message })) : null,
+    cause ? element("p", { classe: "discret" }, "Cause probable : ", element("code", { texte: cause })) : null,
+  );
+}
+
+async function copier(texte) {
+  try {
+    await navigator.clipboard.writeText(texte);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function vuePlantages(app, resultat) {
+  const zoneResultat = element("div");
+  const periodes = element(
+    "div",
+    { classe: "ligne" },
+    ...[
+      [1, "24 heures"],
+      [7, "7 jours"],
+      [30, "30 jours"],
+    ].map(([jours, texte]) => {
+      const bouton = element("button", {
+        type: "button",
+        classe: "bouton secondaire",
+        "aria-pressed": String(jours === periodePlantages),
+        texte,
+      });
+      bouton.addEventListener("click", () => {
+        periodePlantages = jours;
+        afficherPlantages().catch((probleme) => annoncer(erreurTexte(probleme.message), "erreur"));
+      });
+      return bouton;
+    }),
+    boutonAction("Lire les plantages", () => afficherPlantages(), "bouton"),
+  );
+
+  if (resultat.etat === "ok") {
+    const zoneRapport = element("textarea", { readonly: true, rows: "12", spellcheck: "false", classe: "rapport" });
+    zoneRapport.value = resultat.rapport;
+    zoneResultat.append(...[
+      element(
+        "div",
+        { classe: "ligne" },
+        boutonAction("Copier le rapport pour Claude", async () => {
+          if (await copier(resultat.rapport)) return annoncer("Rapport copié : colle-le dans la discussion.", "ok");
+          zoneRapport.closest("details").open = true;
+          zoneRapport.select();
+          annoncer("Copie automatique refusée par le navigateur : le texte est sélectionné, fais Ctrl+C.");
+        }),
+      ),
+      element("details", { classe: "guide" }, element("summary", { texte: "Voir le rapport" }), zoneRapport),
+      resultat.problemes.length === 0
+        ? element("p", { classe: "discret", texte: "Aucun plantage sur la période." })
+        : null,
+      ...resultat.problemes.map(carteProbleme),
+    ].filter(Boolean));
+  } else {
+    zoneResultat.append(element("p", { classe: "avertissement", texte: ETATS_PLANTAGES[resultat.etat] ?? "Erreur inattendue." }));
+  }
+
+  const sansDonnees = resultat.etat !== "ok";
+  return element(
+    "div",
+    {},
+    element(
+      "div",
+      { classe: "carte" },
+      element(
+        "div",
+        { classe: "entete" },
+        element("h2", { texte: app.nom }),
+        element(
+          "div",
+          { classe: "etat" },
+          element("span", {
+            classe: `badge ${resultat.etat === "ok" ? "ok" : "attente"}`,
+            texte: resultat.etat === "ok" ? `Lu ${dateCourte(resultat.le)}` : "Pas de données",
+          }),
+        ),
+      ),
+      periodes,
+      resultat.compte
+        ? element("p", { classe: "discret" }, "Compte de service : ", element("code", { texte: resultat.compte }))
+        : null,
+      element(
+        "div",
+        { classe: "ligne" },
+        lienExterne("Integrations Firebase", `https://console.firebase.google.com/project/${PROJET_FIREBASE}/settings/integrations`),
+        lienExterne("IAM Google Cloud", `https://console.cloud.google.com/iam-admin/iam?project=${PROJET_FIREBASE}`),
+      ),
+      guide({ ...GUIDE_PLANTAGES }, sansDonnees),
+    ),
+    zoneResultat,
+  );
+}
+
+async function afficherPlantages() {
+  const { apps } = await api("/api/apps");
+  const vues = [];
+  for (const app of apps.filter((item) => item.plantages)) {
+    $("#liste-plantages").replaceChildren(element("p", { classe: "discret", texte: "Lecture des plantages…" }));
+    const resultat = await api("/api/plantages", { id: app.id, jours: periodePlantages });
+    vues.push(vuePlantages(app, resultat));
+  }
+  $("#liste-plantages").replaceChildren(...vues);
 }
 
 // --- Coffre ---------------------------------------------------------------------
