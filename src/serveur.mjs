@@ -201,6 +201,19 @@ export function creerServeur({
       outils.oublier();
       return empreinteAndroid(coffre, id, { outils });
     },
+    "GET /api/apps": async () => ({ apps: APPS.map(({ id, nom }) => ({ id, nom })) }),
+    "POST /api/apps/etat": async ({ id }) => etatApp(coffre, id, { fetchFn }),
+    "POST /api/apps/saisir": async ({ id, nom, valeur, nomFichier }) => saisir(coffre, id, nom, { valeur, nomFichier }),
+    "POST /api/apps/envoyer": async ({ id, remplacer }) => {
+      outils.oublier();
+      return envoyerApp(coffre, id, { fetchFn, outils, remplacer });
+    },
+    "POST /api/apps/importer-ancien": async ({ id }) => importerAncien(coffre, id, accueil ? { accueil } : {}),
+    "POST /api/apps/afficher": async ({ id, nom }) => afficher(coffre, id, nom),
+    "POST /api/apps/empreinte": async ({ id }) => {
+      outils.oublier();
+      return empreinteAndroid(coffre, id, { outils });
+    },
   };
 
   const serveur = http.createServer(async (req, res) => {
