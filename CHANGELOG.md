@@ -1,5 +1,13 @@
 # Journal des versions
 
+## 0.3.1 — 2026-11-27
+
+- Plantages : le kit vérifie d'abord l'export (liste des tables du dataset
+  `firebase_crashlytics`) et distingue « lien BigQuery absent » de « lien fait,
+  premier export attendu ». Une table générique sans correspondance (« does not
+  match any table ») n'est plus prise pour une requête fautive.
+- Vraie erreur de BigQuery : sa réponse, nettoyée, s'affiche sous le message.
+
 ## 0.3.0 — 2026-11-27
 
 - Page Plantages : les plantages Crashlytics de HeyWatchlist (app publique et

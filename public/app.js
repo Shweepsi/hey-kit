@@ -861,12 +861,13 @@ const ETATS_PLANTAGES = {
   incomplet: "Ajoute d'abord le compte de service Google (Firebase) dans Connexions.",
   invalide: "Le compte de service Google du coffre est illisible : remplace-le dans Connexions.",
   refuse: "Google refuse la clé du compte de service : elle a peut-être été supprimée. Remplace-la dans Connexions.",
-  "pas-encore": "Pas encore de données : l'export BigQuery de Crashlytics n'est pas activé, ou le premier export n'est pas arrivé (jusqu'à 48 heures). Suis le guide ci-dessous.",
+  "pas-lie": "L'export BigQuery n'existe pas encore : le lien n'est pas fait dans Firebase, ou il vient d'être fait et Firebase n'a pas encore créé le dataset. Vérifie l'étape 1 du guide, puis reviens plus tard.",
+  "pas-encore": "Le lien BigQuery est en place, mais Firebase n'a encore envoyé aucun plantage de cette app : le premier export peut prendre jusqu'à 48 heures. Rien à faire, reviens plus tard.",
   interdit: "Le compte de service n'a pas le droit de lire BigQuery : donne-lui les deux rôles de l'étape 4 du guide.",
   facturation: "BigQuery refuse la requête pour une raison de facturation ou de quota du projet Google Cloud.",
   plafond: "La requête lirait plus de 1 Go : choisis une période plus courte.",
   lent: "BigQuery n'a pas fini à temps : réessaie dans un instant.",
-  requete: "BigQuery n'a pas compris la requête : le format de l'export a peut-être changé. Envoie ce message à Claude.",
+  requete: "BigQuery a refusé la requête du kit. Copie le détail ci-dessous et envoie-le à Claude.",
   injoignable: "Google injoignable (réseau, proxy ou antivirus) : réessaie plus tard.",
 };
 
@@ -966,7 +967,12 @@ function vuePlantages(app, resultat) {
       ...resultat.problemes.map(carteProbleme),
     ].filter(Boolean));
   } else {
-    zoneResultat.append(element("p", { classe: "avertissement", texte: ETATS_PLANTAGES[resultat.etat] ?? "Erreur inattendue." }));
+    zoneResultat.append(
+      ...[
+        element("p", { classe: "avertissement", texte: ETATS_PLANTAGES[resultat.etat] ?? "Erreur inattendue." }),
+        resultat.detail ? element("p", { classe: "discret", texte: `Réponse de BigQuery : ${resultat.detail}` }) : null,
+      ].filter(Boolean),
+    );
   }
 
   const sansDonnees = resultat.etat !== "ok";
