@@ -14,6 +14,7 @@
       <div class="marque">hey-kit <span id="version" class="discret"></span></div>
       <nav id="onglets" class="onglets" hidden>
         <button type="button" data-onglet="connexions" aria-pressed="true">Connexions</button>
+        <button type="button" data-onglet="apps" aria-pressed="false">Mes apps</button>
         <button type="button" data-onglet="coffre" aria-pressed="false">Coffre</button>
         <button type="button" data-onglet="reglages" aria-pressed="false">Réglages</button>
       </nav>
@@ -65,6 +66,16 @@
           Chaque vérification est en lecture seule.
         </p>
         <div id="liste-connexions" class="grille"></div>
+      </section>
+
+      <!-- Ce que chaque app attend sur GitHub et sur son serveur -->
+      <section id="vue-apps" hidden>
+        <h1>Mes apps</h1>
+        <p class="intro">
+          Pour chaque app, ce que GitHub et son serveur attendent. Le kit envoie ce qui manque depuis le coffre,
+          crée les clés internes et te guide pour le reste. Il ne remplace jamais une clé qui ferait casser l'existant.
+        </p>
+        <div id="liste-apps"></div>
       </section>
 
       <!-- Contenu du coffre -->

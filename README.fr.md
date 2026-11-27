@@ -48,8 +48,19 @@ dans l'app Claude pour Windows, puis « Installer l'app »).
 | Page | Rôle |
 | --- | --- |
 | Connexions | GitHub, Cloudflare, Apple, Google (Firebase), TMDB : guide pas à pas, saisie, vérification en lecture seule. |
+| Mes apps | Pour HeyWatchlist : ce que GitHub (secrets, variables) et le Worker attendent, envoi de ce qui manque, création des clés internes, guides Google et Apple pour le reste. |
 | Coffre | Liste des clés par dossier (sans les valeurs), ajout, remplacement, suppression. |
 | Réglages | Emplacement du coffre, changement du mot de passe maître. |
+
+« Mes apps » a besoin de deux programmes sur le PC :
+[GitHub CLI](https://cli.github.com) (`winget install --id GitHub.cli -e`), qui
+chiffre les secrets GitHub avec le jeton du coffre (aucune connexion `gh` à
+faire), et, seulement pour créer une clé de signature Android, Java (`keytool`,
+fourni avec Android Studio ou un JDK). Une valeur dont dépend l'existant (clé
+Android, clé des réglages admin, phrase des certificats iOS) n'est jamais
+remplacée une fois en place. Le bouton « Reprendre l'ancienne sauvegarde »
+récupère ce que les anciens scripts PowerShell ont laissé dans
+`~/HeyWatchlist-secrets`, sans rien effacer.
 
 Les guides citent la documentation officielle de chaque service et la date à
 laquelle ils ont été relus.

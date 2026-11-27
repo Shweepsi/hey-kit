@@ -224,6 +224,7 @@ a { color: var(--accent); }
     <div class="actions">
       <button type="button" id="telecharger" hidden>Télécharger le kit</button>
       <button type="button" id="mettre-a-jour" hidden>Mettre à jour</button>
+      <button type="button" id="relier" hidden>Relier à GitHub et mettre à jour</button>
     </div>
     <pre id="journal" hidden></pre>
   </section>
@@ -303,6 +304,7 @@ async function verifier() {
   ecrireReglage(dossier);
   $("telecharger").hidden = true;
   $("mettre-a-jour").hidden = true;
+  $("relier").hidden = true;
   for (const nom of ["node", "git", "kit"]) pastille(nom, "attente", "Vérification…");
 
   const node = await lancer("node", ["--version"]);
@@ -321,8 +323,14 @@ async function verifier() {
     pastille("kit", "manque", "Indique un dossier valide.");
   } else if (await desktop.fs.exists(chemin(dossier, "kit.mjs")).catch(() => false)) {
     kitOk = true;
-    pastille("kit", "ok", "Prêt dans ce dossier.");
-    $("mettre-a-jour").hidden = !gitOk;
+    if (await desktop.fs.exists(chemin(dossier, ".git")).catch(() => false)) {
+      pastille("kit", "ok", "Prêt dans ce dossier.");
+      $("mettre-a-jour").hidden = !gitOk;
+    } else {
+      // Copie simple (sans Git) : elle marche, mais ne peut pas se mettre à jour.
+      pastille("kit", "ok", "Prêt, mais c'est une copie qui ne se met pas à jour. « Relier à GitHub » la remplace par la version officielle, sur place. Le coffre, rangé dans Documents\\hey-kit, n'est pas touché.");
+      $("relier").hidden = !gitOk;
+    }
   } else if (await desktop.fs.exists(dossier).catch(() => false)) {
     pastille("kit", "manque", "Ce dossier existe mais ne contient pas le kit. Choisis un autre dossier, ou vide celui-ci.");
   } else {
@@ -355,6 +363,8 @@ async function mettreAJour() {
   const resultat = await lancer("git", ["pull", "--ff-only"], { cwd: $("dossier").value.trim() });
   journal(resultat.sortie);
   bouton.disabled = false;
+  // Dossier sans suivi GitHub : on propose de le relier.
+  if (resultat.code !== 0) $("relier").hidden = false;
   annoncer(resultat.code === 0 ? "Kit à jour." : "La mise à jour a échoué : voir le détail ci-dessous.", resultat.code === 0 ? "ok" : "erreur");
 }
 
@@ -452,6 +462,38 @@ $("installer").addEventListener("click", async () => {
   const resultat = await desktop?.install.request().catch(() => "failed");
   if (resultat === "failed" || resultat === "unavailable") $("texte-installer").textContent = "L'installation n'a pas abouti. Réessaie depuis le menu de l'artefact dans l'app Claude.";
 });
+// Transforme une copie simple en dépôt Git suivi, sans rien supprimer : les
+// fichiers du kit prennent la version de GitHub, les autres restent tels quels.
+async function relier() {
+  if (processus) return annoncer("Arrête le kit avant de le mettre à jour.", "erreur");
+  const bouton = $("relier");
+  const dossier = $("dossier").value.trim();
+  bouton.disabled = true;
+  bouton.textContent = "Mise à jour…";
+  let sortie = "";
+  let code = 0;
+  for (const args of [
+    ["init"],
+    ["remote", "add", "origin", DEPOT],
+    ["fetch", "origin", "main"],
+    ["reset", "--hard", "origin/main"],
+    ["branch", "-M", "main"],
+    ["branch", "--set-upstream-to=origin/main", "main"],
+  ]) {
+    let resultat = await lancer("git", args, { cwd: dossier });
+    // Essai précédent interrompu : le dépôt distant est peut-être déjà déclaré.
+    if (resultat.code !== 0 && args[1] === "add") resultat = await lancer("git", ["remote", "set-url", "origin", DEPOT], { cwd: dossier });
+    sortie += `$ git ${args.join(" ")}\n${resultat.sortie}`;
+    code = resultat.code;
+    if (code !== 0) break;
+  }
+  journal(sortie);
+  bouton.disabled = false;
+  bouton.textContent = "Relier à GitHub et mettre à jour";
+  await verifier();
+  annoncer(code === 0 ? "Kit relié à GitHub et à jour. « Mettre à jour » marchera désormais." : "La mise à jour a échoué : voir le détail ci-dessous.", code === 0 ? "ok" : "erreur");
+}
+
 $("autoriser").addEventListener("click", async () => {
   await desktop.permissions.request(["full-access"]).catch(() => {});
   await preparerAcces();
@@ -464,6 +506,7 @@ $("verifier").addEventListener("click", verifier);
 $("dossier").addEventListener("keydown", (e) => { if (e.key === "Enter") verifier(); });
 $("telecharger").addEventListener("click", telecharger);
 $("mettre-a-jour").addEventListener("click", mettreAJour);
+$("relier").addEventListener("click", relier);
 $("demarrer").addEventListener("click", demarrer);
 $("arreter").addEventListener("click", arreter);
 
