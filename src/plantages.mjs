@@ -116,16 +116,37 @@ function probleme(brut) {
   };
 }
 
+// Erreur BigQuery vers un état typé. Le message de BigQuery (noms de tables,
+// de colonnes, position dans la requête) est rendu nettoyé en `detail`, pour
+// qu'une vraie erreur puisse être corrigée sans deviner.
 function erreurBigQuery(statut, corps) {
   const raison = corps?.error?.errors?.[0]?.reason ?? "";
   const message = String(corps?.error?.message ?? "");
-  if (statut === 404 || raison === "notFound" || /not found/i.test(message)) return { etat: "pas-encore" };
+  const detail = nettoyer(message) || undefined;
+  // Table générique sans table correspondante : l'export n'a encore rien écrit.
+  if (statut === 404 || raison === "notFound" || /not found|does not match any table/i.test(message)) {
+    return { etat: "pas-encore" };
+  }
   if (/bytesBilledLimitExceeded/i.test(raison)) return { etat: "plafond" };
-  if (statut === 403 && /accessDenied|forbidden|permission/i.test(`${raison} ${message}`)) return { etat: "interdit" };
-  if (statut === 403 && /billing|sandbox|quota/i.test(`${raison} ${message}`)) return { etat: "facturation" };
-  if (statut === 400) return { etat: "requete" };
+  if (statut === 403 && /accessDenied|forbidden|permission/i.test(`${raison} ${message}`)) return { etat: "interdit", detail };
+  if (statut === 403 && /billing|sandbox|quota/i.test(`${raison} ${message}`)) return { etat: "facturation", detail };
+  if (statut === 400) return { etat: "requete", detail };
   if (statut === 401) return { etat: "refuse" };
-  return { etat: "injoignable" };
+  return { etat: "injoignable", detail };
+}
+
+// Avant la requête : le dataset existe-t-il, et contient-il déjà une table de
+// l'app ? Distingue « lien absent » de « lien fait, premier export attendu ».
+async function etatExport(projet, tables, jeton, fetchFn) {
+  const reponse = await fetchFn(
+    `https://bigquery.googleapis.com/bigquery/v2/projects/${projet}/datasets/firebase_crashlytics/tables?maxResults=1000`,
+    { redirect: "manual", signal: AbortSignal.timeout(DELAI), headers: { Authorization: `Bearer ${jeton}` } },
+  );
+  const corps = await reponse.json().catch(() => null);
+  if (reponse.status === 404) return { etat: "pas-lie" };
+  if (!reponse.ok) return erreurBigQuery(reponse.status, corps);
+  const noms = (corps?.tables ?? []).map((t) => t?.tableReference?.tableId).filter((n) => typeof n === "string");
+  return noms.some((n) => n.startsWith(tables)) ? null : { etat: "pas-encore" };
 }
 
 // Lit les problèmes des `jours` derniers jours. Rend { etat, problemes?, compte? }.
@@ -144,6 +165,8 @@ export async function lirePlantages(coffre, id, { jours = 7, fetchFn = fetch } =
   try {
     const { jeton, statut } = await jetonGoogle(lu, PORTEE, fetchFn);
     if (!jeton) return { etat: statut === 400 || statut === 401 ? "refuse" : "injoignable", compte };
+    const absent = await etatExport(projet, tables, jeton, fetchFn);
+    if (absent) return { ...absent, compte };
     const reponse = await fetchFn(`https://bigquery.googleapis.com/bigquery/v2/projects/${projet}/queries`, {
       method: "POST",
       redirect: "manual",

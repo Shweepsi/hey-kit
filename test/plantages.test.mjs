@@ -95,11 +95,17 @@ const LIGNE = {
   ],
 };
 
-function fetchFn(reponseBigQuery) {
+const TABLES = [200, { tables: [{ tableReference: { tableId: "io_github_shweepsi_heywatchlist_ANDROID" } }] }];
+
+function fetchFn(reponseBigQuery, reponseTables = TABLES) {
   return async (url, options = {}) => {
     appels.push({ url: String(url), options });
     if (url === "https://oauth2.googleapis.com/token") {
       return new Response(JSON.stringify({ access_token: "jeton-google" }), { status: 200 });
+    }
+    if (String(url).includes("/datasets/firebase_crashlytics/tables")) {
+      const [statut, corps] = reponseTables;
+      return new Response(JSON.stringify(corps), { status: statut });
     }
     const [statut, corps] = reponseBigQuery;
     return new Response(JSON.stringify(corps), { status: statut });
@@ -135,7 +141,11 @@ test("lecture : requête en lecture seule, paramétrée, plafonnée, et rapport 
   const assertion = JSON.parse(Buffer.from(jeton.get("assertion").split(".")[1], "base64url").toString());
   assert.equal(assertion.scope, "https://www.googleapis.com/auth/cloud-platform.read-only");
 
-  const requete = appels[1];
+  assert.equal(
+    appels[1].url,
+    "https://bigquery.googleapis.com/bigquery/v2/projects/heywatchlist-60448/datasets/firebase_crashlytics/tables?maxResults=1000",
+  );
+  const requete = appels[2];
   assert.equal(requete.url, "https://bigquery.googleapis.com/bigquery/v2/projects/heywatchlist-60448/queries");
   assert.equal(requete.options.headers.Authorization, "Bearer jeton-google");
   const corps = JSON.parse(requete.options.body);
@@ -177,6 +187,33 @@ test("états typés : export absent, droits manquants, plafond, Google qui refus
   });
   assert.equal(refuse.etat, "refuse");
   await assert.rejects(lirePlantages(coffre, "heywatchlist", { jours: 3650, fetchFn: fetchFn([200, {}]) }), { code: "requete-invalide" });
+});
+
+test("export : lien absent, tables pas encore écrites, et détail des vraies erreurs", async () => {
+  await enregistrerCompte();
+  const lire = (reponse, tables) => lirePlantages(coffre, "heywatchlist", { fetchFn: fetchFn(reponse, tables) });
+
+  appels = [];
+  assert.equal((await lire([200, {}], [404, { error: { message: "Not found: Dataset heywatchlist-60448:firebase_crashlytics" } }])).etat, "pas-lie");
+  assert.equal(appels.length, 2, "aucune requête si le dataset manque");
+
+  appels = [];
+  assert.equal((await lire([200, {}], [200, {}])).etat, "pas-encore");
+  assert.equal((await lire([200, {}], [200, { tables: [{ tableReference: { tableId: "autre_app_ANDROID" } }] }])).etat, "pas-encore");
+  assert.ok(appels.every((a) => !a.url.endsWith("/queries")));
+
+  // Table générique sans correspondance, renvoyée en 400 par BigQuery.
+  const generique = await lire([400, { error: { errors: [{ reason: "invalidQuery" }], message: "Wildcard table heywatchlist-60448:firebase_crashlytics.io_github_shweepsi_heywatchlist* does not match any table." } }]);
+  assert.equal(generique.etat, "pas-encore");
+
+  const champ = await lire([400, { error: { errors: [{ reason: "invalidQuery" }], message: "Unrecognized name: blame_frame at [9:5] token=abcdefabcdefabcdefabcdefabcdefabcdef" } }]);
+  assert.equal(champ.etat, "requete");
+  assert.match(champ.detail, /Unrecognized name: blame_frame at \[9:5\]/);
+  assert.ok(!champ.detail.includes("abcdefabcdef"));
+
+  const droits = await lire([200, {}], [403, { error: { errors: [{ reason: "accessDenied" }], message: "Permission bigquery.tables.list denied" } }]);
+  assert.equal(droits.etat, "interdit");
+  assert.match(droits.detail, /bigquery\.tables\.list/);
 });
 
 test("conversion f/v et nettoyage", () => {
