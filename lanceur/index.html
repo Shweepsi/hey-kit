@@ -211,6 +211,10 @@ a { color: var(--accent); }
         <div><strong>Git</strong><span id="t-git">Vérification…</span></div>
       </li>
       <li>
+        <span class="pastille" id="p-java" data-etat="attente"></span>
+        <div><strong>Java (facultatif)</strong><span id="t-java">Vérification…</span></div>
+      </li>
+      <li>
         <span class="pastille" id="p-kit" data-etat="attente"></span>
         <div><strong>Le kit</strong><span id="t-kit">Vérification…</span></div>
       </li>
@@ -305,7 +309,7 @@ async function verifier() {
   $("telecharger").hidden = true;
   $("mettre-a-jour").hidden = true;
   $("relier").hidden = true;
-  for (const nom of ["node", "git", "kit"]) pastille(nom, "attente", "Vérification…");
+  for (const nom of ["node", "git", "java", "kit"]) pastille(nom, "attente", "Vérification…");
 
   const node = await lancer("node", ["--version"]);
   const majeure = Number(/^v(\d+)\./.exec(node.sortie.trim())?.[1] ?? 0);
@@ -317,6 +321,13 @@ async function verifier() {
   const git = await lancer("git", ["--version"]);
   const gitOk = git.code === 0;
   pastille("git", gitOk ? "ok" : "manque", gitOk ? git.sortie.trim() : "Introuvable : installe Git depuis git-scm.com, puis clique sur Vérifier.");
+
+  // Java ne sert qu'à la clé de signature Android (keytool) : jamais bloquant.
+  const java = await lancer("keytool", ["-help"]);
+  const javaStudio = "C:\\Program Files\\Android\\Android Studio\\jbr\\bin\\keytool.exe";
+  if (java.code === 0) pastille("java", "ok", "keytool trouvé.");
+  else if (await desktop.fs.exists(javaStudio).catch(() => false)) pastille("java", "ok", "keytool trouvé dans Android Studio.");
+  else pastille("java", "attente", "Pas trouvé. Utile seulement pour la clé Android : winget install --id EclipseAdoptium.Temurin.17.JDK -e, puis Vérifier.");
 
   let kitOk = false;
   if (!dossier || /["<>|*?]/.test(dossier)) {

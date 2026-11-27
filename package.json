@@ -1,6 +1,6 @@
 {
   "name": "hey-kit",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Kit local pour configurer les apps : coffre chiffré et connexions aux services.",
   "private": true,
   "type": "module",

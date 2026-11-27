@@ -57,11 +57,11 @@ const outils = () =>
       distant.valeursGithub.set(args[2], entree);
       return { code: 0, sortie: "", erreur: "" };
     }
-    if (args[0] === "-genkeypair") {
+    if (args.includes("-genkeypair")) {
       await fs.writeFile(path.join(cwd, "cle.jks"), "faux keystore");
       return { code: 0, sortie: "", erreur: "" };
     }
-    if (args[0] === "-list") {
+    if (args.includes("-list")) {
       const sha1 = Array.from({ length: 20 }, () => "AB").join(":");
       return { code: 0, sortie: `Certificate fingerprints:\n\t SHA1: ${sha1}\n`, erreur: "" };
     }
@@ -236,7 +236,34 @@ test("affichage limité au code administrateur ; empreinte SHA-1", async () => {
   await coffre.ecrire("HeyWatchlist", "ANDROID_KEYSTORE_PASSWORD", { valeur: "mdp" });
   const { sha1 } = await empreinteAndroid(coffre, "heywatchlist", { outils: outils() });
   assert.match(sha1, /^AB(:AB){19}$/);
-  const liste = lancements.find((l) => l.args[0] === "-list");
+  const liste = lancements.find((l) => l.args.includes("-list"));
+  assert.ok(liste.args.includes("-J-Duser.language=en"), "keytool doit répondre en anglais");
   assert.equal(liste.env.HEY_KIT_MDP, "mdp");
   assert.ok(!liste.args.includes("mdp"));
+});
+
+test("keytool en échec : cause reconnue, ou sa ligne d'erreur sans secret", async () => {
+  await coffre.ecrire("HeyWatchlist", "ANDROID_KEYSTORE", { type: "fichier", valeur: b64("keystore") });
+  await coffre.ecrire("HeyWatchlist", "ANDROID_KEYSTORE_PASSWORD", { valeur: "mdp" });
+  const keytoolQuiRepond = (code, sortie, erreur = "") =>
+    creerOutils(async (_c, args) => (args[0] === "-help" ? { code: 0, sortie: "", erreur: "" } : { code, sortie, erreur }));
+
+  await assert.rejects(
+    empreinteAndroid(coffre, "heywatchlist", {
+      outils: keytoolQuiRepond(1, "keytool error: java.io.IOException: keystore password was incorrect\n"),
+    }),
+    { code: "keystore-mot-de-passe" },
+  );
+  await assert.rejects(
+    empreinteAndroid(coffre, "heywatchlist", { outils: keytoolQuiRepond(1, "keytool error: java.lang.Exception: Alias <heywatchlist> does not exist\n") }),
+    { code: "keystore-alias" },
+  );
+  await assert.rejects(
+    empreinteAndroid(coffre, "heywatchlist", { outils: keytoolQuiRepond(1, "", "keytool error: java.lang.Exception: autre problème\n") }),
+    (erreur) => erreur.code === "keytool-echec" && erreur.detail === "keytool error: java.lang.Exception: autre problme",
+  );
+  // Sortie à la française (« SHA1 : ») : l'empreinte est quand même lue.
+  const sha1 = Array.from({ length: 20 }, () => "0F").join(":");
+  const { sha1: lue } = await empreinteAndroid(coffre, "heywatchlist", { outils: keytoolQuiRepond(0, `\t SHA1 : ${sha1}\n`) });
+  assert.equal(lue, sha1);
 });
