@@ -88,13 +88,26 @@ export function creerServeur({
   maintenant = Date.now,
 }) {
   const session = randomBytes(32).toString("base64url");
-  const verifications = new Map();
   let derniereActivite = maintenant();
   let port = null;
 
-  const verrouiller = () => {
-    coffre.verrouiller();
-    verifications.clear();
+  const verrouiller = () => coffre.verrouiller();
+
+  // Dernière vérification de chaque connexion : état et date, gardés dans le
+  // coffre d'un lancement à l'autre. Jamais de valeur secrète.
+  const NOTE = (id) => `verification:${id}`;
+  const verifierEtNoter = async (id) => {
+    const resultat = await verifier(coffre, id, { fetchFn });
+    const note = { ...resultat, le: new Date(maintenant()).toISOString() };
+    await coffre.ecrireNote(NOTE(id), note);
+    return note;
+  };
+  // Une clé d'une connexion changée depuis l'onglet Coffre : l'ancien résultat ne vaut plus.
+  const oublierVerification = async (dossier, nom) => {
+    if (dossier !== DOSSIER_COMMUN) return;
+    for (const definition of CONNEXIONS) {
+      if (definition.champs.some((champ) => champ.nom === nom)) await coffre.ecrireNote(NOTE(definition.id), null);
+    }
   };
 
   const minuterie = setInterval(() => {
@@ -113,7 +126,7 @@ export function creerServeur({
           ? { valeur: coffre.lire(DOSSIER_COMMUN, champ.nom).valeur }
           : {}),
       })),
-      verification: verifications.get(definition.id) ?? null,
+      verification: coffre.lireNote(NOTE(definition.id)),
     }));
 
   const routes = {
@@ -141,10 +154,12 @@ export function creerServeur({
     "GET /api/coffre": async () => ({ dossiers: coffre.lister() }),
     "POST /api/coffre/ecrire": async ({ dossier, nom, type, valeur, nomFichier }) => {
       await coffre.ecrire(dossier, nom, { type, valeur, nomFichier });
+      await oublierVerification(dossier, nom);
       return { ok: true };
     },
     "POST /api/coffre/supprimer": async ({ dossier, nom }) => {
       await coffre.supprimer(dossier, nom);
+      await oublierVerification(dossier, nom);
       return { ok: true };
     },
     "GET /api/connexions": async () => {
@@ -166,16 +181,12 @@ export function creerServeur({
           await coffre.ecrire(DOSSIER_COMMUN, champ.nom, { type: "texte", valeur });
         }
       }
-      const resultat = await verifier(coffre, id, { fetchFn });
-      verifications.set(id, { ...resultat, le: new Date(maintenant()).toISOString() });
-      return { verification: verifications.get(id) };
+      return { verification: await verifierEtNoter(id) };
     },
     "POST /api/connexions/verifier": async ({ id }) => {
       if (!connexion(id)) throw new ErreurCoffre("requete-invalide");
       if (!coffre.ouvert) throw new ErreurCoffre("verrouille");
-      const resultat = await verifier(coffre, id, { fetchFn });
-      verifications.set(id, { ...resultat, le: new Date(maintenant()).toISOString() });
-      return { verification: verifications.get(id) };
+      return { verification: await verifierEtNoter(id) };
     },
     "GET /api/apps": async () => ({ apps: APPS.map(({ id, nom }) => ({ id, nom })) }),
     "POST /api/apps/etat": async ({ id }) => etatApp(coffre, id, { fetchFn }),
