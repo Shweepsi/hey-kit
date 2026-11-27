@@ -1,5 +1,13 @@
 # Journal des versions
 
+## 0.2.2 — 2026-11-27
+
+- Mes apps : un badge global « En place » ou « À faire » par carte, et l'état
+  à côté de chaque champ. Une valeur déjà en place sur le serveur l'indique
+  dans son champ, et les champs passent sous « Remplacer une valeur ».
+- Connexion avec Google : rappelle ce que le kit ne peut pas vérifier
+  (clients Android, publication de l'app).
+
 ## 0.2.1 — 2026-11-27
 
 - Connexions : la dernière vérification de chaque connexion (état, date et
