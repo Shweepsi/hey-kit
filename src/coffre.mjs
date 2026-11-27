@@ -217,6 +217,25 @@ export class Coffre {
     });
   }
 
+  // Notes du kit (dernières vérifications…) : rien de secret, mais rangées dans
+  // le coffre chiffré pour survivre à un redémarrage sans fichier à part.
+  lireNote(cle) {
+    const notes = this.#exiger().notes;
+    return notes && Object.hasOwn(notes, cle) ? structuredClone(notes[cle]) : null;
+  }
+
+  // `valeur` null efface la note.
+  async ecrireNote(cle, valeur) {
+    this.#exiger();
+    await this.#modifier((_dossiers, donnees) => {
+      if (valeur === null) {
+        if (donnees.notes) delete donnees.notes[cle];
+      } else {
+        donnees.notes = { ...donnees.notes, [cle]: structuredClone(valeur) };
+      }
+    });
+  }
+
   async changerMotDePasse(ancien, nouveau) {
     if (typeof nouveau !== "string" || [...nouveau].length < LONGUEUR_MIN_MOT_DE_PASSE) {
       throw new ErreurCoffre("mot-de-passe-court");
@@ -254,7 +273,7 @@ export class Coffre {
     return this.#enFile(async () => {
       const avant = this.#exiger();
       const copie = structuredClone(avant);
-      changement(copie.dossiers);
+      changement(copie.dossiers, copie);
       this.#donnees = copie;
       try {
         await this.#sauver();

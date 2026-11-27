@@ -256,13 +256,24 @@ function guide(libelles, ouvert) {
   );
 }
 
+// « aujourd'hui à 15:02 » ou « le 27 nov. 2026 à 15:02 ».
+function dateVerification(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const heure = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const jour = date.toDateString() === new Date().toDateString() ? "aujourd'hui" : `le ${date.toLocaleDateString("fr-FR", { dateStyle: "medium" })}`;
+  return `${jour} à ${heure}`;
+}
+
 function carteConnexion(connexion) {
   const libelles = CONNEXIONS[connexion.id];
   const formulaire = element("form", { classe: "carte formulaire connexion" });
   const etatZone = element("div", { classe: "etat" });
   const majEtat = (verification) => {
     etatZone.replaceChildren(badge(connexion.id, verification));
-    if (verification) etatZone.append(element("span", { classe: "discret", texte: detailEtat(connexion.id, verification) }));
+    if (!verification) return;
+    etatZone.append(element("span", { classe: "discret", texte: detailEtat(connexion.id, verification) }));
+    if (verification.le) etatZone.append(element("span", { classe: "discret", texte: `Vérifié ${dateVerification(verification.le)}` }));
   };
   majEtat(connexion.verification);
 

@@ -151,6 +151,17 @@ test("parcours : créer, enregistrer une connexion, vérifier, verrouiller", asy
   assert.equal((await api("GET", "/api/connexions")).statut, 423);
   assert.equal((await api("POST", "/api/coffre/ouvrir", { motDePasse: "faux" })).statut, 401);
   assert.equal((await api("POST", "/api/coffre/ouvrir", { motDePasse: MOT })).statut, 200);
+
+  // La dernière vérification survit au verrouillage (et donc à un redémarrage).
+  const rouvert = (await api("GET", "/api/connexions")).json.connexions.find((c) => c.id === "github");
+  assert.equal(rouvert.verification.etat, "ok");
+  assert.equal(rouvert.verification.le, new Date(0).toISOString());
+  assert.ok(!JSON.stringify(rouvert).includes("ghp_valeur_secrete"));
+
+  // Changer la clé depuis l'onglet Coffre efface l'ancien résultat.
+  await api("POST", "/api/coffre/ecrire", { dossier: "Commun", nom: "GITHUB_TOKEN", valeur: "ghp_autre" });
+  const change = (await api("GET", "/api/connexions")).json.connexions.find((c) => c.id === "github");
+  assert.equal(change.verification, null);
 });
 
 test("Mes apps : liste, valeurs jamais lisibles sauf le code administrateur", async () => {

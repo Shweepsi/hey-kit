@@ -1,5 +1,11 @@
 # Journal des versions
 
+## 0.2.1 — 2026-11-27
+
+- Connexions : la dernière vérification de chaque connexion (état, date et
+  nom du compte, jamais la clé) est gardée dans le coffre et réaffichée au
+  lancement suivant. Elle est effacée si la clé change depuis l'onglet Coffre.
+
 ## 0.2.0 — 2026-11-27
 
 - Page Mes apps, pour HeyWatchlist : état de chaque secret et variable GitHub

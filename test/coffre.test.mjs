@@ -154,3 +154,19 @@ test("changement de mot de passe maître", async () => {
   await autre.ouvrir("nouveau mot de passe long");
   assert.equal(autre.lire("Commun", "A").valeur, "1");
 });
+
+test("les notes survivent à la fermeture et restent chiffrées", async () => {
+  const dossier = await fs.mkdtemp(path.join(os.tmpdir(), "hey-kit-notes-"));
+  const fichier = path.join(dossier, "coffre.hey-kit");
+  const coffre = new Coffre(fichier, { kdf: { N: 2 ** 10, r: 8, p: 1 } });
+  await coffre.creer("mot de passe des notes");
+  assert.equal(coffre.lireNote("verification:github"), null);
+  await coffre.ecrireNote("verification:github", { etat: "ok", compte: "exemple-de-compte" });
+  coffre.verrouiller();
+  assert.ok(!(await fs.readFile(fichier, "utf8")).includes("exemple-de-compte"));
+  await coffre.ouvrir("mot de passe des notes");
+  assert.deepEqual(coffre.lireNote("verification:github"), { etat: "ok", compte: "exemple-de-compte" });
+  await coffre.ecrireNote("verification:github", null);
+  assert.equal(coffre.lireNote("verification:github"), null);
+  assert.ok(coffre.lister().Commun);
+});
