@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>hey-kit</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <div class="fond" aria-hidden="true"></div>
+    <header class="barre">
+      <div class="marque">hey-kit <span id="version" class="discret"></span></div>
+      <nav id="onglets" class="onglets" hidden>
+        <button type="button" data-onglet="connexions" aria-pressed="true">Connexions</button>
+        <button type="button" data-onglet="coffre" aria-pressed="false">Coffre</button>
+        <button type="button" data-onglet="reglages" aria-pressed="false">Réglages</button>
+      </nav>
+      <button type="button" id="verrouiller" class="bouton secondaire" hidden>Verrouiller</button>
+    </header>
+
+    <main>
+      <p id="message" class="message" role="status" hidden></p>
+
+      <!-- Premier lancement : création du coffre -->
+      <section id="vue-creer" class="carte etroite" hidden>
+        <h1>Créer ton coffre</h1>
+        <p>
+          Toutes les clés de tes apps seront rangées dans un seul fichier chiffré, sur ce PC :
+          <code id="chemin-creer"></code>
+        </p>
+        <form id="form-creer" class="formulaire">
+          <label>Mot de passe maître
+            <input type="password" name="motDePasse" autocomplete="new-password" minlength="12" required />
+          </label>
+          <label>Le même, encore une fois
+            <input type="password" name="confirmation" autocomplete="new-password" minlength="12" required />
+          </label>
+          <p class="avertissement">
+            Au moins 12 caractères. Range-le dans ton gestionnaire de mots de passe :
+            s'il est perdu, le coffre ne peut plus être ouvert, par personne.
+          </p>
+          <button type="submit" class="bouton">Créer le coffre</button>
+        </form>
+      </section>
+
+      <!-- Coffre existant et verrouillé -->
+      <section id="vue-ouvrir" class="carte etroite" hidden>
+        <h1>Ouvrir le coffre</h1>
+        <p class="discret"><code id="chemin-ouvrir"></code></p>
+        <form id="form-ouvrir" class="formulaire">
+          <label>Mot de passe maître
+            <input type="password" name="motDePasse" autocomplete="current-password" required autofocus />
+          </label>
+          <button type="submit" class="bouton">Ouvrir</button>
+        </form>
+      </section>
+
+      <!-- Comptes communs à toutes les apps -->
+      <section id="vue-connexions" hidden>
+        <h1>Connexions</h1>
+        <p class="intro">
+          Les comptes communs à toutes tes apps, saisis une seule fois. Un champ laissé vide garde la valeur déjà enregistrée.
+          Chaque vérification est en lecture seule.
+        </p>
+        <div id="liste-connexions" class="grille"></div>
+      </section>
+
+      <!-- Contenu du coffre -->
+      <section id="vue-coffre" hidden>
+        <h1>Coffre</h1>
+        <p class="intro">Ce que contient le coffre, rangé par dossier. Les valeurs ne sont jamais affichées.</p>
+        <div id="liste-coffre"></div>
+        <form id="form-ajouter" class="carte formulaire">
+          <h2>Ajouter ou remplacer une clé</h2>
+          <div class="ligne">
+            <label>Dossier
+              <input name="dossier" list="dossiers" value="Commun" required pattern="[A-Za-z0-9][A-Za-z0-9 _.\-]{0,63}" />
+            </label>
+            <label>Nom
+              <input name="nom" required pattern="[A-Z][A-Z0-9_]{0,63}" placeholder="EXEMPLE_API_KEY" />
+            </label>
+          </div>
+          <datalist id="dossiers"></datalist>
+          <fieldset class="choix">
+            <legend>Type</legend>
+            <label><input type="radio" name="type" value="texte" checked /> Texte</label>
+            <label><input type="radio" name="type" value="fichier" /> Fichier</label>
+          </fieldset>
+          <label data-pour="texte">Valeur
+            <input type="password" name="valeur" autocomplete="off" />
+          </label>
+          <label data-pour="fichier" hidden>Fichier
+            <input type="file" name="fichier" />
+          </label>
+          <button type="submit" class="bouton">Enregistrer</button>
+        </form>
+      </section>
+
+      <!-- Réglages -->
+      <section id="vue-reglages" hidden>
+        <h1>Réglages</h1>
+        <div class="carte">
+          <h2>Fichier du coffre</h2>
+          <p><code id="chemin-reglages"></code></p>
+          <p class="discret">
+            Pour une sauvegarde, copie ce fichier tel quel (OneDrive, clé USB) : il reste chiffré.
+            Le fichier <code>.bak</code> à côté est la version précédente.
+          </p>
+        </div>
+        <form id="form-mot-de-passe" class="carte formulaire">
+          <h2>Changer le mot de passe maître</h2>
+          <label>Mot de passe actuel
+            <input type="password" name="ancien" autocomplete="current-password" required />
+          </label>
+          <label>Nouveau mot de passe
+            <input type="password" name="nouveau" autocomplete="new-password" minlength="12" required />
+          </label>
+          <label>Le même, encore une fois
+            <input type="password" name="confirmation" autocomplete="new-password" minlength="12" required />
+          </label>
+          <button type="submit" class="bouton">Changer</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

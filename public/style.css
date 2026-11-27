@@ -1,0 +1,363 @@
+/* Verre dépoli : fond coloré flou, cartes translucides. Sans dépendance. */
+:root {
+  --texte: #14161c;
+  --discret: #5b6170;
+  --carte: rgba(255, 255, 255, 0.62);
+  --bord: rgba(255, 255, 255, 0.75);
+  --champ: rgba(255, 255, 255, 0.8);
+  --accent: #3a5bd9;
+  --accent-texte: #ffffff;
+  --ok: #1f8a4c;
+  --attente: #9a6a00;
+  --erreur: #c0392b;
+  --ombre: 0 8px 32px rgba(20, 30, 60, 0.12);
+  --fond-a: #c9d6ff;
+  --fond-b: #ffd9e8;
+  --fond-c: #d4f5ec;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --texte: #eef0f6;
+    --discret: #a2a8b8;
+    --carte: rgba(30, 34, 46, 0.6);
+    --bord: rgba(255, 255, 255, 0.1);
+    --champ: rgba(15, 18, 26, 0.7);
+    --accent: #7d97ff;
+    --accent-texte: #0d1020;
+    --ok: #4cd08a;
+    --attente: #f0c04a;
+    --erreur: #ff7b6e;
+    --ombre: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --fond-a: #1c2650;
+    --fond-b: #3a1830;
+    --fond-c: #10332b;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--texte);
+  background: var(--fond-a);
+}
+
+.fond {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 15% 20%, var(--fond-a), transparent 55%),
+    radial-gradient(circle at 85% 15%, var(--fond-b), transparent 50%),
+    radial-gradient(circle at 60% 90%, var(--fond-c), transparent 55%);
+  filter: blur(40px);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.barre {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 24px;
+  background: var(--carte);
+  border-bottom: 1px solid var(--bord);
+  backdrop-filter: blur(24px) saturate(160%);
+}
+
+.marque {
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.onglets {
+  display: flex;
+  gap: 4px;
+  margin-right: auto;
+}
+
+.onglets button {
+  border: 0;
+  background: none;
+  color: var(--discret);
+  font: inherit;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.onglets button[aria-pressed="true"] {
+  color: var(--texte);
+  background: var(--champ);
+  box-shadow: var(--ombre);
+}
+
+main {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+h1 {
+  font-size: 26px;
+  margin: 8px 0 4px;
+}
+
+h2 {
+  font-size: 17px;
+  margin: 0;
+}
+
+.intro {
+  color: var(--discret);
+  margin: 0 0 20px;
+}
+
+.carte {
+  background: var(--carte);
+  border: 1px solid var(--bord);
+  border-radius: 18px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--ombre);
+  backdrop-filter: blur(24px) saturate(160%);
+}
+
+.etroite {
+  max-width: 460px;
+  margin: 48px auto;
+}
+
+.grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 520px) {
+  .grille {
+    grid-template-columns: 1fr;
+  }
+  .barre {
+    flex-wrap: wrap;
+    padding: 12px 16px;
+  }
+}
+
+.formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ligne {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ligne label {
+  flex: 1 1 180px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 500;
+}
+
+input[type="text"],
+input[type="password"],
+input:not([type]) {
+  font: inherit;
+  color: inherit;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--bord);
+  background: var(--champ);
+}
+
+input:focus-visible,
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input[type="file"] {
+  font: inherit;
+}
+
+.choix {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 16px;
+}
+
+.choix label {
+  flex-direction: row;
+  align-items: center;
+  font-weight: 400;
+}
+
+.bouton {
+  align-self: flex-start;
+  font: inherit;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-texte);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.bouton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.bouton.secondaire {
+  background: var(--champ);
+  color: var(--texte);
+  border: 1px solid var(--bord);
+}
+
+.bouton.lien {
+  background: none;
+  color: var(--discret);
+  padding: 4px 8px;
+  font-weight: 400;
+}
+
+.bouton.danger {
+  color: var(--erreur);
+}
+
+.entete {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.etat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 13px;
+  text-align: right;
+}
+
+.badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+
+.badge.ok {
+  color: var(--ok);
+}
+
+.badge.attente {
+  color: var(--attente);
+}
+
+.badge.erreur {
+  color: var(--erreur);
+}
+
+.guide summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.guide ol {
+  padding-left: 22px;
+  margin: 8px 0;
+}
+
+.guide li {
+  margin-bottom: 6px;
+}
+
+.discret {
+  color: var(--discret);
+  font-weight: 400;
+}
+
+.avertissement {
+  margin: 4px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border-left: 3px solid var(--attente);
+  background: var(--champ);
+  font-size: 14px;
+}
+
+.message {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--carte);
+  border: 1px solid var(--bord);
+  backdrop-filter: blur(24px);
+}
+
+.message[data-genre="erreur"] {
+  color: var(--erreur);
+}
+
+.message[data-genre="ok"] {
+  color: var(--ok);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--bord);
+  font-size: 14px;
+}
+
+th {
+  color: var(--discret);
+  font-weight: 500;
+}
+
+code {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.92em;
+  word-break: break-all;
+}
+
+a {
+  color: var(--accent);
+}
