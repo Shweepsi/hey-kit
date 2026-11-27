@@ -16,6 +16,10 @@ const ERREURS = {
   "valeur-invalide": "Valeur vide ou fichier illisible.",
   ecriture: "Impossible d'écrire le fichier du coffre (disque plein, droits, antivirus ?).",
   "trop-gros": "Fichier trop gros (2 Mo au plus).",
+  "keytool-absent": "Java (keytool) introuvable : installe Android Studio, ou un JDK 17 (winget install --id EclipseAdoptium.Temurin.17.JDK -e), puis réessaie.",
+  "keytool-echec": "Java n'a pas pu lire ou créer la clé Android.",
+  "keystore-absent": "La clé Android n'est pas dans le coffre : reprends l'ancienne sauvegarde ou lance un envoi.",
+  "requete-invalide": "Requête refusée par le kit.",
   session: "Session expirée : relance le kit et ouvre le nouveau lien.",
   reseau: "Le kit ne répond plus : la fenêtre où il tourne a peut-être été fermée.",
 };
@@ -190,8 +194,8 @@ let etat = null;
 let onglet = "connexions";
 
 function montrer(vue) {
-  for (const id of ["creer", "ouvrir", "connexions", "coffre", "reglages"]) $(`#vue-${id}`).hidden = id !== vue;
-  const ouvert = ["connexions", "coffre", "reglages"].includes(vue);
+  for (const id of ["creer", "ouvrir", "connexions", "apps", "coffre", "reglages"]) $(`#vue-${id}`).hidden = id !== vue;
+  const ouvert = ["connexions", "apps", "coffre", "reglages"].includes(vue);
   $("#onglets").hidden = !ouvert;
   $("#verrouiller").hidden = !ouvert;
   for (const bouton of document.querySelectorAll("[data-onglet]")) {
@@ -220,6 +224,7 @@ async function afficherOnglet(nom) {
   onglet = nom;
   montrer(nom);
   if (nom === "connexions") await afficherConnexions();
+  if (nom === "apps") await afficherApps();
   if (nom === "coffre") await afficherCoffre();
 }
 
@@ -327,6 +332,468 @@ function carteConnexion(connexion) {
 async function afficherConnexions() {
   const { connexions } = await api("/api/connexions");
   $("#liste-connexions").replaceChildren(...connexions.map(carteConnexion));
+}
+
+// --- Mes apps ------------------------------------------------------------------
+
+const ELEMENTS = {
+  CLOUDFLARE_API_TOKEN: "Jeton Cloudflare (déploiement du serveur)",
+  CLOUDFLARE_ACCOUNT_ID: "Compte Cloudflare",
+  HEYWATCHLIST_API_URL: "Adresse du serveur, inscrite dans les apps",
+  ASC_KEY_ID: "Clé App Store Connect : Key ID",
+  ASC_ISSUER_ID: "Clé App Store Connect : Issuer ID",
+  ASC_KEY_P8: "Clé App Store Connect : fichier .p8",
+  APPLE_TEAM_ID: "Team ID Apple",
+  MATCH_GIT_URL: "Dépôt des certificats iOS",
+  MATCH_GIT_TOKEN: "Jeton du dépôt des certificats iOS",
+  MATCH_PASSWORD: "Phrase qui chiffre les certificats iOS",
+  ANDROID_KEYSTORE_BASE64: "Clé de signature Android",
+  ANDROID_KEYSTORE_PASSWORD: "Clé Android : mot de passe",
+  ANDROID_KEY_ALIAS: "Clé Android : alias",
+  ANDROID_KEY_PASSWORD: "Clé Android : mot de passe de la clé",
+  GOOGLE_SERVICES_JSON: "Réglages Firebase (google-services.json)",
+  SESSION_SIGNING_KEY: "Clé des sessions",
+  CREDENTIALS_KEY: "Clé des réglages admin",
+  BOOTSTRAP_CODE: "Code administrateur (première connexion)",
+  TMDB_API_KEY: "Clé TMDB",
+  FCM_SERVICE_ACCOUNT: "Compte de service Firebase (notifications Android)",
+  GOOGLE_WEB_CLIENT_ID: "Client Google « Web application »",
+  GOOGLE_IOS_CLIENT_ID: "Client Google « iOS »",
+  APPLE_SIGNIN_KEY_ID: "Clé Sign in with Apple : Key ID",
+  APPLE_SIGNIN_PRIVATE_KEY: "Clé Sign in with Apple : fichier .p8",
+  APNS_KEY_ID: "Clé APNs : Key ID",
+  APNS_PRIVATE_KEY: "Clé APNs : fichier .p8",
+};
+
+const SOURCES = {
+  commun: "Depuis Connexions",
+  fixe: "Valeur fixe",
+  "url-worker": "Lue chez Cloudflare",
+  genere: "Créée par le kit",
+  keystore: "Créée par le kit (Java) ou reprise",
+  saisie: "À fournir ci-dessous",
+};
+const DESTINATIONS = { secret: "secret GitHub", variable: "variable GitHub", worker: "serveur" };
+
+const ETATS_ELEMENT = {
+  "en-place": ["ok", "En place"],
+  "a-envoyer": ["attente", "À envoyer"],
+  "a-fournir": ["attente", "À fournir"],
+  inconnu: ["attente", "Inconnu"],
+};
+
+const ACCES = {
+  ok: ["ok", "Accessible"],
+  incomplet: ["attente", "Connexion à remplir"],
+  refuse: ["erreur", "Jeton refusé"],
+  interdit: ["erreur", "Droits insuffisants"],
+  introuvable: ["erreur", "Introuvable"],
+  injoignable: ["attente", "Injoignable"],
+};
+
+function detailAcces(service, etatAcces) {
+  const github = service === "github";
+  switch (etatAcces) {
+    case "incomplet":
+      return github ? "Remplis GitHub dans Connexions." : "Remplis Cloudflare dans Connexions.";
+    case "refuse":
+      return "Le jeton est expiré ou révoqué : remplace-le dans Connexions.";
+    case "interdit":
+      return github
+        ? "Le jeton GitHub doit avoir Secrets et Variables en « Read and write » sur ce dépôt."
+        : "Le jeton Cloudflare doit pouvoir modifier les Workers (modèle « Edit Cloudflare Workers »).";
+    case "introuvable":
+      return github
+        ? "Dépôt invisible pour ce jeton : ajoute-le dans « Repository access » du jeton."
+        : "Le Worker n'existe pas encore : il est créé au premier déploiement par GitHub.";
+    case "injoignable":
+      return "Réseau, proxy ou antivirus : réessaie plus tard.";
+    default:
+      return "";
+  }
+}
+
+const RESULTATS = {
+  "gh-absent": "GitHub CLI introuvable : installe-le (winget install --id GitHub.cli -e), puis relance l'envoi.",
+  "keytool-absent": ERREURS["keytool-absent"],
+  "keytool-echec": ERREURS["keytool-echec"],
+  refuse: "jeton refusé",
+  interdit: "droits insuffisants",
+  introuvable: "dépôt ou Worker introuvable",
+  injoignable: "service injoignable",
+  echec: "échec de l'envoi",
+};
+
+// Guides des valeurs à fournir. Chaque étape vient de la page officielle citée.
+const PROJET_GOOGLE = "heywatchlist-60448";
+const pageGoogle = (page) => `https://console.developers.google.com/auth/${page}?project=${PROJET_GOOGLE}`;
+const SAISIES = [
+  {
+    titre: "Connexion avec Google",
+    elements: ["GOOGLE_WEB_CLIENT_ID", "GOOGLE_IOS_CLIENT_ID"],
+    empreinte: true,
+    liens: [
+      ["Branding", pageGoogle("branding")],
+      ["Audience", pageGoogle("audience")],
+      ["Clients", pageGoogle("clients")],
+    ],
+    etapes: [
+      `Vérifie en haut de chaque page que le projet choisi est ${PROJET_GOOGLE}.`,
+      "Branding : remplis « App Information » (nom HeyWatchlist, ton e-mail d'assistance) et « Developer contact information », puis Save.",
+      "Audience : type d'utilisateur « External » (tout compte Google). Pour ouvrir l'app à tous, bouton « Publish app » : l'état passe de « Testing » à « In production ».",
+      "Clients : CREATE CLIENT, type « Web application », nom « HeyWatchlist serveur ». Les origines et les adresses de redirection ne servent qu'aux sites web : laisse-les vides. CREATE, puis copie le Client ID dans le premier champ ci-dessous.",
+      "CREATE CLIENT, type « iOS », Bundle ID io.github.shweepsi.heywatchlist (App Store ID et Team ID sont facultatifs). CREATE, puis copie le Client ID dans le second champ.",
+      "CREATE CLIENT, type « Android », deux fois : Package name io.github.shweepsi.heywatchlist, puis io.github.shweepsi.heywatchlist.admin. Pour les deux, la même empreinte « SHA1 fingerprint » (bouton plus bas). Rien à recopier ensuite : il suffit que ces clients existent.",
+    ],
+    attention: [
+      "Tant que l'app est en « Testing », Google la limite à 100 comptes de test. Comme HeyWatchlist ne demande que le nom et l'adresse e-mail, ces comptes n'ont pas à être listés.",
+      "Google affiche aussi un « client secret » : les apps n'en ont pas besoin, ne le copie nulle part.",
+    ],
+    sources: [
+      ["Branding", "https://support.google.com/cloud/answer/15549049"],
+      ["Audience", "https://support.google.com/cloud/answer/15549945"],
+      ["Clients OAuth", "https://support.google.com/cloud/answer/15549257"],
+      ["Empreinte Android", "https://developers.google.com/android/guides/client-auth"],
+      ["Client iOS", "https://developers.google.com/identity/sign-in/ios/start-integrating"],
+    ],
+  },
+  {
+    titre: "Notifications Android (google-services.json)",
+    elements: ["GOOGLE_SERVICES_JSON"],
+    liens: [["Console Firebase", `https://console.firebase.google.com/project/${PROJET_GOOGLE}/settings/general`]],
+    etapes: [
+      `Ouvre la console Firebase, projet ${PROJET_GOOGLE}.`,
+      "Si l'app Android n'y est pas encore : ajoute une app Android, « Android package name » io.github.shweepsi.heywatchlist, puis Register app. Fais de même pour io.github.shweepsi.heywatchlist.admin.",
+      "Clique sur « Download google-services.json » et glisse le fichier ci-dessous. Le kit vérifie qu'il contient bien l'app HeyWatchlist.",
+    ],
+    attention: [
+      "Ce fichier n'est pas secret au sens strict, mais le kit le range quand même dans le coffre. Il se retélécharge à tout moment depuis la console.",
+    ],
+    sources: [["Ajouter Firebase à une app Android", "https://firebase.google.com/docs/android/setup"]],
+  },
+  {
+    titre: "Clé Sign in with Apple",
+    elements: ["APPLE_SIGNIN_PRIVATE_KEY", "APPLE_SIGNIN_KEY_ID"],
+    liens: [["Créer une clé", "https://developer.apple.com/account/resources/authkeys/add"]],
+    etapes: [
+      "Sur developer.apple.com, Certificates, Identifiers & Profiles : Keys dans la barre de gauche, puis le bouton (+). Il faut être Account Holder ou Admin.",
+      "Key Name : « HeyWatchlist Sign in ». Coche « Sign in with Apple », clique sur Configure à côté et choisis l'App ID principal io.github.shweepsi.heywatchlist. Puis Continue et Register.",
+      "Clique sur Download : un fichier AuthKey_XXXXXXXXXX.p8 arrive dans Téléchargements. Glisse-le ci-dessous : le Key ID est lu dans son nom.",
+    ],
+    attention: [
+      "Apple ne garde pas ce fichier et ne le laisse télécharger qu'une fois : enregistre-le ici tout de suite, puis supprime-le de Téléchargements.",
+      "Apple accepte deux clés au plus par App ID principal.",
+      "L'App ID n'apparaît pas encore ? La CI iOS l'active au prochain envoi TestFlight : reviens ensuite.",
+    ],
+    sources: [
+      ["Créer une clé", "https://developer.apple.com/help/account/keys/create-a-private-key/"],
+      ["Clé Sign in with Apple", "https://developer.apple.com/help/account/capabilities/create-a-sign-in-with-apple-private-key"],
+      ["Trouver le Key ID", "https://developer.apple.com/help/account/keys/get-a-key-identifier"],
+    ],
+  },
+  {
+    titre: "Notifications iPhone (clé APNs)",
+    elements: ["APNS_PRIVATE_KEY", "APNS_KEY_ID"],
+    liens: [["Créer une clé", "https://developer.apple.com/account/resources/authkeys/add"]],
+    etapes: [
+      "Même page : Keys, bouton (+). Key Name : « HeyWatchlist Push ».",
+      "Coche « Apple Push Notifications service (APNs) » et clique sur Configure à côté. Type de clé : « Team Scoped ». Choisis l'environnement Sandbox et Production si la page le propose. Puis Continue et Register.",
+      "Download, puis glisse le fichier .p8 ci-dessous.",
+    ],
+    attention: [
+      "Une clé distincte de celle de Sign in with Apple : Apple limite chaque type de clé, mieux vaut ne pas les mélanger.",
+      "Téléchargeable une seule fois, comme toutes les clés Apple.",
+    ],
+    sources: [
+      ["Créer une clé", "https://developer.apple.com/help/account/keys/create-a-private-key/"],
+      ["Connexion à APNs par jeton", "https://developer.apple.com/documentation/usernotifications/establishing-a-token-based-connection-to-apns"],
+    ],
+  },
+  {
+    titre: "Jeton du dépôt des certificats iOS",
+    elements: ["MATCH_GIT_TOKEN"],
+    liens: [
+      [
+        "Créer le jeton",
+        "https://github.com/settings/personal-access-tokens/new?name=HeyWatchlist+certificats&target_name=Shweepsi&expires_in=365&contents=write",
+      ],
+    ],
+    etapes: [
+      "Le dépôt privé Shweepsi/heywatchlist-certificates doit exister (les anciens scripts l'ont créé). S'il manque, crée-le vide et privé sur GitHub.",
+      "« Créer le jeton » ouvre le formulaire prérempli : Resource owner Shweepsi, expiration un an, Contents en Read and write.",
+      "Repository access : « Only select repositories », puis heywatchlist-certificates seulement.",
+      "Generate token, copie le jeton (github_pat_…) dans le champ ci-dessous.",
+    ],
+    attention: ["Note la date d'expiration : à l'échéance, l'envoi TestFlight échoue tant que le jeton n'est pas remplacé ici."],
+    sources: [
+      ["Jetons fine-grained", "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"],
+    ],
+  },
+];
+
+function badgeElement(el) {
+  const [genre, texte] = ETATS_ELEMENT[el.etat] ?? ["attente", "Inconnu"];
+  return element("span", { classe: `badge ${genre}`, texte });
+}
+
+function badgeAcces(service, etatAcces) {
+  const [genre, texte] = ACCES[etatAcces] ?? ["attente", "Inconnu"];
+  return element("span", { classe: `badge ${genre}`, texte, title: detailAcces(service, etatAcces) });
+}
+
+async function envoyerApp(id, remplacer = []) {
+  annoncer("Envoi en cours…");
+  const { acces, resultats } = await api("/api/apps/envoyer", { id, remplacer });
+  const echecs = resultats.filter((r) => !["ok", "genere"].includes(r.resultat));
+  const envoyes = resultats.filter((r) => r.resultat === "ok").length;
+  const generes = resultats.filter((r) => r.resultat === "genere").map((r) => r.nom);
+  const morceaux = [`${envoyes} valeur${envoyes > 1 ? "s" : ""} envoyée${envoyes > 1 ? "s" : ""}.`];
+  if (generes.includes("BOOTSTRAP_CODE")) morceaux.push("Un code administrateur a été créé : affiche-le dans la liste.");
+  const premierBlocage = echecs.find((r) => r.resultat === "gh-absent" || r.resultat.startsWith("keytool"));
+  if (premierBlocage) morceaux.push(RESULTATS[premierBlocage.resultat]);
+  const autres = echecs.filter((r) => !(r.resultat === "gh-absent" || r.resultat.startsWith("keytool")));
+  if (autres.length > 0) {
+    morceaux.push(`Non envoyé : ${autres.map((r) => `${r.nom} (${RESULTATS[r.resultat] ?? "échec"})`).join(", ")}.`);
+  }
+  if (acces.github !== "ok") morceaux.push(`GitHub : ${detailAcces("github", acces.github)}`);
+  if (acces.worker !== "ok") morceaux.push(`Serveur : ${detailAcces("worker", acces.worker)}`);
+  await afficherApps();
+  annoncer(morceaux.join(" "), echecs.length > 0 || acces.github !== "ok" || acces.worker !== "ok" ? "erreur" : "ok");
+}
+
+function boutonAction(texte, action, classe = "bouton secondaire") {
+  const bouton = element("button", { type: "button", classe, texte });
+  bouton.addEventListener("click", async () => {
+    bouton.disabled = true;
+    try {
+      await action(bouton);
+    } catch (probleme) {
+      annoncer(erreurTexte(probleme.message), "erreur");
+    } finally {
+      bouton.disabled = false;
+    }
+  });
+  return bouton;
+}
+
+function ligneElement(app, el) {
+  const destinations = el.destinations.map((d) => DESTINATIONS[d.type]).join(" et ");
+  let action = null;
+  if (el.afficher && el.local) {
+    const zone = element("span");
+    action = element(
+      "span",
+      {},
+      boutonAction(
+        "Afficher",
+        async (bouton) => {
+          const { valeur } = await api("/api/apps/afficher", { id: app.id, nom: el.nom });
+          zone.replaceChildren(element("code", { texte: valeur ?? "" }));
+          bouton.hidden = true;
+        },
+        "bouton lien",
+      ),
+      zone,
+    );
+  } else if (el.etat === "en-place" && !el.conserver && el.source !== "fixe" && el.source !== "url-worker") {
+    action = boutonAction("Renvoyer", () => envoyerApp(app.id, [el.nom]), "bouton lien");
+  }
+  const source = el.depuis ? `${SOURCES[el.source]} (${el.depuis})` : SOURCES[el.source];
+  return element(
+    "tr",
+    {},
+    element("td", {}, element("div", { texte: ELEMENTS[el.nom] ?? el.nom }), element("code", { classe: "discret", texte: el.nom })),
+    element("td", { texte: `${source}, vers ${destinations}${el.conserver ? ". Jamais remplacée" : ""}` }),
+    element("td", {}, badgeElement(el)),
+    element("td", {}, action),
+  );
+}
+
+function carteSaisie(app, saisie) {
+  const elements = saisie.elements.map((nom) => app.elements.find((el) => el.nom === nom)).filter(Boolean);
+  const complet = elements.every((el) => el.etat === "en-place");
+  const formulaire = element("form", { classe: "carte formulaire connexion" });
+  formulaire.append(
+    element(
+      "div",
+      { classe: "entete" },
+      element("h2", { texte: saisie.titre }),
+      element("div", { classe: "etat" }, ...elements.map(badgeElement)),
+    ),
+    element(
+      "div",
+      { classe: "ligne" },
+      ...saisie.liens.map(([texte, href]) =>
+        element("a", { classe: "bouton secondaire", href, target: "_blank", rel: "noopener noreferrer", texte }),
+      ),
+    ),
+    guide(saisie, !complet),
+  );
+  if (saisie.empreinte) {
+    const zone = element("p", { classe: "discret" });
+    formulaire.append(
+      boutonAction("Afficher l'empreinte SHA-1", async () => {
+        const { sha1 } = await api("/api/apps/empreinte", { id: app.id });
+        zone.replaceChildren("SHA1 fingerprint (pas secrète) : ", element("code", { texte: sha1 }));
+      }),
+      zone,
+    );
+  }
+  for (const el of elements) {
+    // L'identifiant d'une clé Apple est lu dans le nom du fichier AuthKey_….p8.
+    const luDansFichier = /_KEY_ID$/.test(el.nom) && elements.some((autre) => autre.fichier === "p8");
+    const libelle = ELEMENTS[el.nom] ?? el.nom;
+    const saisieChamp = el.fichier
+      ? element("input", { type: "file", name: el.nom, accept: el.fichier === "p8" ? ".p8" : ".json" })
+      : element("input", {
+          type: el.format === "jeton-github-fin" ? "password" : "text",
+          name: el.nom,
+          autocomplete: "off",
+          spellcheck: "false",
+          placeholder: el.local
+            ? "Enregistré (laisser vide pour garder)"
+            : luDansFichier
+              ? "Lu dans le nom du fichier, sinon 10 caractères"
+              : "",
+        });
+    formulaire.append(element("label", {}, libelle, saisieChamp));
+  }
+  const bouton = element("button", { type: "submit", classe: "bouton", texte: "Enregistrer et envoyer" });
+  formulaire.append(bouton);
+  formulaire.addEventListener("submit", async (evenement) => {
+    evenement.preventDefault();
+    bouton.disabled = true;
+    try {
+      const remplaces = [];
+      for (const el of elements) {
+        const champ = formulaire.elements[el.nom];
+        if (!champ) continue;
+        let corps = null;
+        if (el.fichier) {
+          const fichier = champ.files[0];
+          if (fichier) corps = { valeur: await lireFichier(fichier), nomFichier: fichier.name };
+        } else if (champ.value.trim() !== "") {
+          corps = { valeur: champ.value };
+        }
+        if (!corps) continue;
+        const { etat, aussi } = await api("/api/apps/saisir", { id: app.id, nom: el.nom, ...corps });
+        if (etat !== "ok") {
+          annoncer(`${ELEMENTS[el.nom] ?? el.nom} : format inattendu, vérifie la valeur ou le fichier.`, "erreur");
+          return;
+        }
+        remplaces.push(el.nom, ...(aussi ? [aussi] : []));
+      }
+      if (remplaces.length === 0) return annoncer("Rien de nouveau à enregistrer.");
+      await envoyerApp(app.id, remplaces);
+    } catch (probleme) {
+      annoncer(erreurTexte(probleme.message), "erreur");
+    } finally {
+      bouton.disabled = false;
+    }
+  });
+  return formulaire;
+}
+
+function carteReprise(app) {
+  const zone = element("p", { classe: "discret" });
+  return element(
+    "div",
+    { classe: "carte" },
+    element("h2", { texte: "Tu as utilisé les anciens scripts PowerShell ?" }),
+    element("p", {
+      texte:
+        "Ils ont gardé la clé Android, les phrases secrètes et le code administrateur dans le dossier HeyWatchlist-secrets de ton dossier personnel. Le kit peut les reprendre dans le coffre : rien n'est remplacé ni effacé.",
+    }),
+    boutonAction("Reprendre l'ancienne sauvegarde", async () => {
+      const { trouve, repris } = await api("/api/apps/importer-ancien", { id: app.id });
+      if (!trouve) return zone.replaceChildren("Aucune ancienne sauvegarde trouvée sur ce PC.");
+      zone.replaceChildren(
+        repris.length === 0
+          ? "Le coffre avait déjà tout."
+          : `Repris : ${repris.join(", ")}. Garde le dossier tant que tu n'as pas une copie du coffre (onglet Réglages).`,
+      );
+      await afficherApps();
+    }),
+    zone,
+  );
+}
+
+function vueApp(app) {
+  const enAttente = app.elements.filter((el) => el.etat === "a-envoyer").length;
+  return element(
+    "div",
+    {},
+    element(
+      "div",
+      { classe: "carte" },
+      element(
+        "div",
+        { classe: "entete" },
+        element("h2", { texte: app.nom }),
+        element(
+          "div",
+          { classe: "etat" },
+          element("span", { classe: "discret", texte: "GitHub" }),
+          badgeAcces("github", app.acces.github),
+          element("span", { classe: "discret", texte: "Serveur" }),
+          badgeAcces("worker", app.acces.worker),
+        ),
+      ),
+      element(
+        "p",
+        { classe: "discret" },
+        "Dépôt ",
+        lienExterne(app.depot, `https://github.com/${app.depot}/settings/secrets/actions`),
+        ` · Worker ${app.worker}`,
+        app.acces.url ? ` · ${app.acces.url}` : "",
+      ),
+      element(
+        "div",
+        { classe: "ligne" },
+        boutonAction(
+          enAttente > 0 ? `Envoyer ce qui manque (${enAttente})` : "Envoyer ce qui manque",
+          () => envoyerApp(app.id),
+          "bouton",
+        ),
+        boutonAction("Actualiser", async () => {
+          await afficherApps();
+          annoncer("");
+        }),
+      ),
+      element("p", {
+        classe: "discret",
+        texte:
+          "Les secrets GitHub partent par GitHub CLI (gh), avec le jeton de Connexions : rien à taper, rien à connecter. La clé Android est créée avec Java (keytool) si elle n'existe nulle part.",
+      }),
+    ),
+    ...SAISIES.map((saisie) => carteSaisie(app, saisie)),
+    app.keystore ? null : carteReprise(app),
+    element(
+      "details",
+      { classe: "carte guide" },
+      element("summary", { texte: `Tout ce que l'app attend (${app.elements.length})` }),
+      element(
+        "div",
+        { classe: "defile" },
+        element(
+          "table",
+          {},
+          element("thead", {}, element("tr", {}, ...["Valeur", "Origine", "État", ""].map((t) => element("th", { texte: t })))),
+          element("tbody", {}, ...app.elements.map((el) => ligneElement(app, el))),
+        ),
+      ),
+    ),
+  );
+}
+
+async function afficherApps() {
+  const { apps } = await api("/api/apps");
+  const vues = [];
+  for (const { id } of apps) {
+    const app = await api("/api/apps/etat", { id });
+    vues.push(vueApp(app));
+  }
+  $("#liste-apps").replaceChildren(...vues);
 }
 
 // --- Coffre ---------------------------------------------------------------------

@@ -153,6 +153,15 @@ test("parcours : créer, enregistrer une connexion, vérifier, verrouiller", asy
   assert.equal((await api("POST", "/api/coffre/ouvrir", { motDePasse: MOT })).statut, 200);
 });
 
+test("Mes apps : liste, valeurs jamais lisibles sauf le code administrateur", async () => {
+  assert.deepEqual((await api("GET", "/api/apps")).json.apps, [{ id: "heywatchlist", nom: "HeyWatchlist" }]);
+  assert.equal((await api("POST", "/api/apps/afficher", { id: "heywatchlist", nom: "CREDENTIALS_KEY" })).json.erreur, "requete-invalide");
+  assert.equal((await api("POST", "/api/apps/etat", { id: "inconnue" })).statut, 400);
+  assert.equal((await api("POST", "/api/coffre/verrouiller", {})).statut, 200);
+  assert.equal((await api("POST", "/api/apps/etat", { id: "heywatchlist" })).statut, 423);
+  assert.equal((await api("POST", "/api/coffre/ouvrir", { motDePasse: MOT })).statut, 200);
+});
+
 test("route inconnue et corps trop gros", async () => {
   assert.equal((await api("GET", "/api/rien")).statut, 404);
   const gros = await api("POST", "/api/coffre/ecrire", { dossier: "Commun", nom: "GROS", valeur: "x".repeat(3 * 1024 * 1024) });

@@ -1,5 +1,21 @@
 # Journal des versions
 
+## 0.2.0 — 2026-11-27
+
+- Page Mes apps, pour HeyWatchlist : état de chaque secret et variable GitHub
+  et de chaque secret du Worker, envoi de ce qui manque depuis le coffre
+  (secrets GitHub par GitHub CLI, le reste par les API GitHub et Cloudflare),
+  correction des variables à la mauvaise valeur.
+- Création des clés internes (sessions, réglages admin, phrase des
+  certificats, code administrateur) et de la clé de signature Android (Java),
+  rangées dans le coffre avant l'envoi ; jamais de remplacement d'une valeur
+  dont dépend l'existant.
+- Guides pas à pas tirés des documentations officielles : connexion avec
+  Google (Branding, Audience, clients Web, iOS et Android avec l'empreinte
+  SHA-1), google-services.json, clés Sign in with Apple et APNs, jeton du
+  dépôt des certificats iOS.
+- Reprise de l'ancienne sauvegarde des scripts PowerShell.
+
 ## 0.1.0 — 2026-11-27
 
 - Serveur local sur `127.0.0.1` : jeton d'ouverture, cookie de session strict,

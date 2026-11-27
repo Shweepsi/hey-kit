@@ -15,7 +15,9 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { ErreurCoffre } from "./coffre.mjs";
+import { APPS, afficher, empreinteAndroid, envoyerApp, etatApp, importerAncien, saisir } from "./apps.mjs";
 import { CONNEXIONS, DOSSIER_COMMUN, connexion, formatValide, verifier } from "./connexions.mjs";
+import { creerOutils } from "./outils.mjs";
 
 const TAILLE_MAX = 2 * 1024 * 1024;
 const COOKIE = "hey_kit";
@@ -80,6 +82,8 @@ export function creerServeur({
   dossierPublic,
   version,
   fetchFn = fetch,
+  outils = creerOutils(),
+  accueil,
   delaiVerrouillage = 15 * 60_000,
   maintenant = Date.now,
 }) {
@@ -172,6 +176,19 @@ export function creerServeur({
       const resultat = await verifier(coffre, id, { fetchFn });
       verifications.set(id, { ...resultat, le: new Date(maintenant()).toISOString() });
       return { verification: verifications.get(id) };
+    },
+    "GET /api/apps": async () => ({ apps: APPS.map(({ id, nom }) => ({ id, nom })) }),
+    "POST /api/apps/etat": async ({ id }) => etatApp(coffre, id, { fetchFn }),
+    "POST /api/apps/saisir": async ({ id, nom, valeur, nomFichier }) => saisir(coffre, id, nom, { valeur, nomFichier }),
+    "POST /api/apps/envoyer": async ({ id, remplacer }) => {
+      outils.oublier();
+      return envoyerApp(coffre, id, { fetchFn, outils, remplacer });
+    },
+    "POST /api/apps/importer-ancien": async ({ id }) => importerAncien(coffre, id, accueil ? { accueil } : {}),
+    "POST /api/apps/afficher": async ({ id, nom }) => afficher(coffre, id, nom),
+    "POST /api/apps/empreinte": async ({ id }) => {
+      outils.oublier();
+      return empreinteAndroid(coffre, id, { outils });
     },
   };
 
