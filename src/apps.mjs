@@ -38,6 +38,9 @@ const HEYWATCHLIST = {
   worker: "heywatchlist-api",
   bundle: "io.github.shweepsi.heywatchlist",
   aliasAndroid: "heywatchlist",
+  // Plantages : export BigQuery de Crashlytics du projet Firebase. Les tables
+  // portent le nom du paquet, points changés en « _ » (app publique et admin).
+  crashlytics: { projet: "heywatchlist-60448", tables: "io_github_shweepsi_heywatchlist" },
   // Sauvegarde laissée sur le PC par les anciens scripts PowerShell.
   ancien: {
     dossier: "HeyWatchlist-secrets",

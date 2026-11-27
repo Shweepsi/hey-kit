@@ -132,29 +132,28 @@ async function verifierApple({ ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 }, fetchFn)
 
 const JETON_GOOGLE = "https://oauth2.googleapis.com/token";
 
-async function verifierFirebase({ FIREBASE_SERVICE_ACCOUNT }, fetchFn) {
-  let compte;
-  let cle;
+// Lit le compte de service Google rangé dans le coffre (base64 du JSON).
+// Rend null s'il est illisible ou s'il enverrait la signature ailleurs que chez Google.
+export function lireCompteGoogle(base64) {
   try {
-    compte = JSON.parse(Buffer.from(FIREBASE_SERVICE_ACCOUNT, "base64").toString("utf8"));
-    cle = createPrivateKey(compte.private_key);
+    const compte = JSON.parse(Buffer.from(base64, "base64").toString("utf8"));
+    const cle = createPrivateKey(compte.private_key);
+    if (compte?.type !== "service_account" || typeof compte.client_email !== "string" || compte.token_uri !== JETON_GOOGLE) {
+      return null;
+    }
+    return { compte, cle };
   } catch {
-    return { etat: "invalide", champ: "FIREBASE_SERVICE_ACCOUNT" };
+    return null;
   }
-  // On n'envoie la signature qu'à Google, quoi que dise le fichier.
-  if (compte?.type !== "service_account" || typeof compte.client_email !== "string" || compte.token_uri !== JETON_GOOGLE) {
-    return { etat: "invalide", champ: "FIREBASE_SERVICE_ACCOUNT" };
-  }
+}
+
+// Échange une assertion signée contre un jeton d'accès Google limité à `scope`.
+// Rend { jeton } ou { statut } en cas de refus.
+export async function jetonGoogle({ compte, cle }, scope, fetchFn) {
   const maintenant = Math.floor(Date.now() / 1000);
   const assertion = jwt(
     { alg: "RS256", typ: "JWT" },
-    {
-      iss: compte.client_email,
-      scope: "https://www.googleapis.com/auth/firebase.messaging",
-      aud: JETON_GOOGLE,
-      iat: maintenant - 60,
-      exp: maintenant + 600,
-    },
+    { iss: compte.client_email, scope, aud: JETON_GOOGLE, iat: maintenant - 60, exp: maintenant + 600 },
     cle,
   );
   const reponse = await appeler(fetchFn, JETON_GOOGLE, {
@@ -162,11 +161,17 @@ async function verifierFirebase({ FIREBASE_SERVICE_ACCOUNT }, fetchFn) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }).toString(),
   });
-  if (reponse.ok && typeof reponse.corps?.access_token === "string") {
-    return { etat: "ok", compte: typeof compte.project_id === "string" ? compte.project_id : null };
-  }
-  if (reponse.statut === 400 || reponse.statut === 401) return { etat: "refuse" };
-  return selonStatut(reponse.statut);
+  if (reponse.ok && typeof reponse.corps?.access_token === "string") return { jeton: reponse.corps.access_token };
+  return { statut: reponse.statut };
+}
+
+async function verifierFirebase({ FIREBASE_SERVICE_ACCOUNT }, fetchFn) {
+  const lu = lireCompteGoogle(FIREBASE_SERVICE_ACCOUNT);
+  if (!lu) return { etat: "invalide", champ: "FIREBASE_SERVICE_ACCOUNT" };
+  const { jeton, statut } = await jetonGoogle(lu, "https://www.googleapis.com/auth/firebase.messaging", fetchFn);
+  if (jeton) return { etat: "ok", compte: typeof lu.compte.project_id === "string" ? lu.compte.project_id : null };
+  if (statut === 400 || statut === 401) return { etat: "refuse" };
+  return selonStatut(statut);
 }
 
 async function verifierTmdb({ TMDB_API_KEY }, fetchFn) {
