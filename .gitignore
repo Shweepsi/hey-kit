@@ -1,0 +1,7 @@
+# Le coffre ne vit jamais dans le dépôt.
+*.hey-kit
+*.hey-kit.bak
+*.hey-kit.tmp
+.env
+.env.*
+node_modules/

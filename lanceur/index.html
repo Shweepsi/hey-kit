@@ -1,0 +1,500 @@
+<title>hey-kit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<script type="application/json" id="claude-artifacts-manifest">{"permissions": ["full-access"]}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap">
+<style>
+/* Lanceur de hey-kit : une fenêtre étroite en verre dépoli, une colonne d'étapes,
+   un gros bouton d'état. Les couleurs reprennent celles du kit. */
+:root {
+  --fond: #eef1fb;
+  --halo-a: #c9d6ff;
+  --halo-b: #ffd9e8;
+  --halo-c: #d4f5ec;
+  --carte: rgba(255, 255, 255, 0.66);
+  --bord: rgba(255, 255, 255, 0.85);
+  --texte: #161a26;
+  --discret: #5a6072;
+  --accent: #3a5bd9;
+  --sur-accent: #ffffff;
+  --ok: #1f8a4c;
+  --attente: #9a6a00;
+  --erreur: #c0392b;
+  --police-titre: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --police: "Inter", "Segoe UI", system-ui, sans-serif;
+  --police-code: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fond: #11141f;
+    --halo-a: #1c2650;
+    --halo-b: #3a1830;
+    --halo-c: #10332b;
+    --carte: rgba(30, 34, 46, 0.62);
+    --bord: rgba(255, 255, 255, 0.1);
+    --texte: #eef0f6;
+    --discret: #a2a8b8;
+    --accent: #7d97ff;
+    --sur-accent: #0d1020;
+    --ok: #4cd08a;
+    --attente: #f0c04a;
+    --erreur: #ff7b6e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --fond: #11141f;
+  --halo-a: #1c2650;
+  --halo-b: #3a1830;
+  --halo-c: #10332b;
+  --carte: rgba(30, 34, 46, 0.62);
+  --bord: rgba(255, 255, 255, 0.1);
+  --texte: #eef0f6;
+  --discret: #a2a8b8;
+  --accent: #7d97ff;
+  --sur-accent: #0d1020;
+  --ok: #4cd08a;
+  --attente: #f0c04a;
+  --erreur: #ff7b6e;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--fond);
+  color: var(--texte);
+  font: 15px/1.5 var(--police);
+  min-height: 100%;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 40px;
+}
+.halo {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 12% 15%, var(--halo-a), transparent 55%),
+    radial-gradient(circle at 90% 10%, var(--halo-b), transparent 50%),
+    radial-gradient(circle at 55% 95%, var(--halo-c), transparent 55%);
+  filter: blur(36px);
+}
+main { max-width: 560px; margin: 0 auto; display: grid; gap: 16px; }
+header { display: flex; align-items: center; gap: 14px; }
+header canvas { width: 48px; height: 48px; border-radius: 12px; flex: none; }
+h1 { font: 700 26px/1.1 var(--police-titre); margin: 0; letter-spacing: -0.01em; }
+.sous-titre { color: var(--discret); margin: 2px 0 0; }
+.carte {
+  background: var(--carte);
+  border: 1px solid var(--bord);
+  border-radius: 18px;
+  padding: 18px 20px;
+  backdrop-filter: blur(24px) saturate(160%);
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+h2 { font: 600 16px/1.3 var(--police-titre); margin: 0; }
+.etapes { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.etapes li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; }
+.pastille { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--discret); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+.pastille[data-etat="ok"] { border-color: var(--ok); color: var(--ok); }
+.pastille[data-etat="ok"]::after { content: "✓"; }
+.pastille[data-etat="manque"] { border-color: var(--erreur); color: var(--erreur); }
+.pastille[data-etat="manque"]::after { content: "!"; }
+.pastille[data-etat="attente"] { border-color: var(--attente); border-style: dashed; }
+.etapes strong { display: block; font-weight: 600; }
+.etapes span, .discret { color: var(--discret); font-size: 14px; }
+label { display: grid; gap: 4px; font-weight: 500; }
+.ligne { display: flex; gap: 8px; flex-wrap: wrap; }
+.ligne input { flex: 1 1 220px; min-width: 0; }
+input {
+  font: 14px var(--police-code);
+  color: inherit;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--bord);
+  background: var(--carte);
+}
+button, .bouton {
+  font: 600 14px var(--police);
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--bord);
+  background: var(--carte);
+  color: var(--texte);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+button.principal, .bouton.principal { background: var(--accent); color: var(--sur-accent); border-color: transparent; }
+button:disabled { opacity: 0.55; cursor: progress; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.etat-kit { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.voyant { width: 10px; height: 10px; border-radius: 50%; background: var(--discret); }
+.voyant[data-etat="marche"] { background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 25%, transparent); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.message { margin: 0; font-size: 14px; }
+.message[data-genre="erreur"] { color: var(--erreur); }
+.message[data-genre="ok"] { color: var(--ok); }
+pre {
+  margin: 0;
+  max-height: 160px;
+  overflow: auto;
+  font: 12px/1.45 var(--police-code);
+  color: var(--discret);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+a { color: var(--accent); }
+@media (prefers-reduced-motion: no-preference) {
+  .voyant[data-etat="marche"] { transition: box-shadow 0.3s; }
+}
+</style>
+
+<div class="halo" aria-hidden="true"></div>
+<main>
+  <header>
+    <canvas id="icone" width="256" height="256" aria-hidden="true"></canvas>
+    <div>
+      <h1>hey-kit</h1>
+      <p class="sous-titre">Le coffre et les réglages de tes apps, sur ce PC.</p>
+    </div>
+  </header>
+
+  <!-- Hors de l'app installée : proposer l'installation -->
+  <section id="vue-installer" class="carte" hidden>
+    <h2>Installer l'app</h2>
+    <p class="discret" id="texte-installer">
+      Ce lanceur s'installe comme une app Windows : une icône dans la barre des tâches, qui démarre le kit et l'ouvre dans ton navigateur.
+    </p>
+    <div class="actions"><button type="button" id="installer" class="principal">Installer l'app</button></div>
+  </section>
+
+  <!-- Accès aux fichiers et aux programmes -->
+  <section id="vue-acces" class="carte" hidden>
+    <h2>Autoriser l'accès à ce PC</h2>
+    <p class="discret">
+      Le lanceur a besoin de lancer Node et Git, et de vérifier le dossier du kit. Il ne lit jamais ton coffre : c'est le kit qui l'ouvre, avec ton mot de passe maître.
+    </p>
+    <div class="actions">
+      <button type="button" id="autoriser" class="principal">Autoriser</button>
+      <button type="button" id="gerer" hidden>Ouvrir les autorisations</button>
+    </div>
+  </section>
+
+  <!-- Le lanceur -->
+  <section id="vue-lanceur" class="carte" hidden>
+    <div class="etat-kit">
+      <span class="voyant" id="voyant"></span>
+      <h2 id="titre-etat">Kit arrêté</h2>
+    </div>
+    <div class="actions">
+      <button type="button" id="demarrer" class="principal">Démarrer le kit</button>
+      <button type="button" id="arreter" hidden>Arrêter et verrouiller</button>
+      <a id="lien" class="bouton" href="#" target="_blank" rel="noopener noreferrer" hidden>Ouvrir la page</a>
+    </div>
+    <p class="message" id="message" role="status"></p>
+    <p class="discret">Le kit tourne tant que cette fenêtre est ouverte. La fermer arrête le kit et verrouille le coffre.</p>
+  </section>
+
+  <section id="vue-verifs" class="carte" hidden>
+    <h2>Ce qu'il faut sur ce PC</h2>
+    <ul class="etapes">
+      <li>
+        <span class="pastille" id="p-node" data-etat="attente"></span>
+        <div><strong>Node 22 ou plus récent</strong><span id="t-node">Vérification…</span></div>
+      </li>
+      <li>
+        <span class="pastille" id="p-git" data-etat="attente"></span>
+        <div><strong>Git</strong><span id="t-git">Vérification…</span></div>
+      </li>
+      <li>
+        <span class="pastille" id="p-kit" data-etat="attente"></span>
+        <div><strong>Le kit</strong><span id="t-kit">Vérification…</span></div>
+      </li>
+    </ul>
+    <label for="dossier">Dossier du kit
+      <span class="ligne">
+        <input id="dossier" spellcheck="false" autocomplete="off">
+        <button type="button" id="verifier">Vérifier</button>
+      </span>
+    </label>
+    <div class="actions">
+      <button type="button" id="telecharger" hidden>Télécharger le kit</button>
+      <button type="button" id="mettre-a-jour" hidden>Mettre à jour</button>
+    </div>
+    <pre id="journal" hidden></pre>
+  </section>
+</main>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const DEPOT = "https://github.com/Shweepsi/hey-kit";
+// Le lien d'ouverture du kit : 127.0.0.1, un port, un jeton aléatoire.
+const LIEN = /http:\/\/127\.0\.0\.1:\d{1,5}\/ouvrir\?t=[A-Za-z0-9_-]+/;
+const CLE_DOSSIER = "hey-kit-dossier";
+
+dessinerIcone();
+
+let desktop = null;
+let separateur = "/";
+let processus = null;
+let lienKit = null;
+
+function lireReglage() {
+  try { return localStorage.getItem(CLE_DOSSIER); } catch { return null; }
+}
+function ecrireReglage(valeur) {
+  try { localStorage.setItem(CLE_DOSSIER, valeur); } catch { /* réglage non gardé */ }
+}
+
+function montrer(...vues) {
+  for (const id of ["vue-installer", "vue-acces", "vue-lanceur", "vue-verifs"]) $(id).hidden = !vues.includes(id);
+}
+
+function annoncer(texte, genre = "") {
+  $("message").textContent = texte;
+  $("message").dataset.genre = genre;
+}
+
+function journal(texte) {
+  const zone = $("journal");
+  zone.hidden = !texte;
+  // Le lien d'ouverture contient le jeton de session : jamais dans le journal.
+  zone.textContent = texte.replace(LIEN, "http://127.0.0.1:…/ouvrir?t=…").slice(-4000);
+  zone.scrollTop = zone.scrollHeight;
+}
+
+function pastille(nom, etat, texte) {
+  $(`p-${nom}`).dataset.etat = etat;
+  $(`t-${nom}`).textContent = texte;
+}
+
+const chemin = (...morceaux) => morceaux.join(separateur);
+
+// Lance un programme (sans passer par un shell) et attend sa fin.
+function lancer(commande, args, options = {}) {
+  return new Promise((resolve) => {
+    let sortie = "";
+    let fini = false;
+    const finir = (code) => {
+      if (fini) return;
+      fini = true;
+      resolve({ code, sortie });
+    };
+    let enfant;
+    try {
+      enfant = desktop.childProcess.spawn(commande, args, options);
+    } catch (erreur) {
+      sortie = String(erreur?.message ?? erreur);
+      return finir(-1);
+    }
+    enfant.stdout.on("data", (morceau) => { sortie += morceau; });
+    enfant.stderr.on("data", (morceau) => { sortie += morceau; });
+    enfant.on("error", (erreur) => { sortie += String(erreur?.message ?? erreur); finir(-1); });
+    enfant.on("close", (code) => finir(code));
+  });
+}
+
+async function verifier() {
+  const dossier = $("dossier").value.trim();
+  ecrireReglage(dossier);
+  $("telecharger").hidden = true;
+  $("mettre-a-jour").hidden = true;
+  for (const nom of ["node", "git", "kit"]) pastille(nom, "attente", "Vérification…");
+
+  const node = await lancer("node", ["--version"]);
+  const majeure = Number(/^v(\d+)\./.exec(node.sortie.trim())?.[1] ?? 0);
+  const nodeOk = node.code === 0 && majeure >= 22;
+  pastille("node", nodeOk ? "ok" : "manque", nodeOk ? node.sortie.trim() : node.code === 0
+    ? `${node.sortie.trim()} est trop ancien : installe la version LTS sur nodejs.org.`
+    : "Introuvable : installe la version LTS depuis nodejs.org, puis clique sur Vérifier.");
+
+  const git = await lancer("git", ["--version"]);
+  const gitOk = git.code === 0;
+  pastille("git", gitOk ? "ok" : "manque", gitOk ? git.sortie.trim() : "Introuvable : installe Git depuis git-scm.com, puis clique sur Vérifier.");
+
+  let kitOk = false;
+  if (!dossier || /["<>|*?]/.test(dossier)) {
+    pastille("kit", "manque", "Indique un dossier valide.");
+  } else if (await desktop.fs.exists(chemin(dossier, "kit.mjs")).catch(() => false)) {
+    kitOk = true;
+    pastille("kit", "ok", "Prêt dans ce dossier.");
+    $("mettre-a-jour").hidden = !gitOk;
+  } else if (await desktop.fs.exists(dossier).catch(() => false)) {
+    pastille("kit", "manque", "Ce dossier existe mais ne contient pas le kit. Choisis un autre dossier, ou vide celui-ci.");
+  } else {
+    pastille("kit", "manque", "Pas encore téléchargé.");
+    $("telecharger").hidden = !gitOk;
+  }
+
+  $("demarrer").disabled = !(nodeOk && kitOk) || processus !== null;
+  if (!nodeOk || !kitOk) annoncer("Complète d'abord ce qui manque ci-dessous.");
+  else if (!processus) annoncer("");
+  return nodeOk && kitOk;
+}
+
+async function telecharger() {
+  const bouton = $("telecharger");
+  bouton.disabled = true;
+  bouton.textContent = "Téléchargement…";
+  journal("Si Git demande de te connecter à GitHub, une fenêtre s'ouvre : connecte-toi avec ton compte.\n");
+  const resultat = await lancer("git", ["clone", DEPOT, $("dossier").value.trim()]);
+  journal(resultat.sortie);
+  bouton.disabled = false;
+  bouton.textContent = "Télécharger le kit";
+  await verifier();
+}
+
+async function mettreAJour() {
+  if (processus) return annoncer("Arrête le kit avant de le mettre à jour.", "erreur");
+  const bouton = $("mettre-a-jour");
+  bouton.disabled = true;
+  const resultat = await lancer("git", ["pull", "--ff-only"], { cwd: $("dossier").value.trim() });
+  journal(resultat.sortie);
+  bouton.disabled = false;
+  annoncer(resultat.code === 0 ? "Kit à jour." : "La mise à jour a échoué : voir le détail ci-dessous.", resultat.code === 0 ? "ok" : "erreur");
+}
+
+function etatKit(enMarche) {
+  $("voyant").dataset.etat = enMarche ? "marche" : "arret";
+  $("titre-etat").textContent = enMarche ? "Kit en marche" : "Kit arrêté";
+  $("demarrer").hidden = enMarche;
+  $("arreter").hidden = !enMarche;
+  $("lien").hidden = !(enMarche && lienKit);
+}
+
+async function demarrer() {
+  if (processus || !(await verifier())) return;
+  lienKit = null;
+  let sortie = "";
+  // Sans --sans-navigateur : le kit ouvre lui-même le navigateur.
+  processus = desktop.childProcess.spawn("node", ["kit.mjs"], { cwd: $("dossier").value.trim() });
+  etatKit(true);
+  annoncer("Démarrage…");
+  const lire = (morceau) => {
+    sortie += morceau;
+    const trouve = LIEN.exec(sortie);
+    if (trouve && !lienKit) {
+      lienKit = trouve[0];
+      $("lien").href = lienKit;
+      $("lien").hidden = false;
+      annoncer("La page du kit s'ouvre dans ton navigateur. Sinon, clique sur « Ouvrir la page ».", "ok");
+    }
+    journal(sortie);
+  };
+  processus.stdout.on("data", lire);
+  processus.stderr.on("data", lire);
+  processus.on("error", (erreur) => {
+    journal(`${sortie}\n${erreur?.message ?? erreur}`);
+    annoncer("Le kit n'a pas pu démarrer : voir le détail ci-dessous.", "erreur");
+  });
+  processus.on("close", (code) => {
+    processus = null;
+    lienKit = null;
+    etatKit(false);
+    $("demarrer").disabled = false;
+    if (code !== 0 && code !== null) annoncer("Le kit s'est arrêté avec une erreur : voir le détail ci-dessous.", "erreur");
+    else annoncer("Kit arrêté, coffre verrouillé.");
+  });
+}
+
+async function arreter() {
+  if (!processus) return;
+  $("arreter").disabled = true;
+  await processus.kill().catch(() => {});
+  $("arreter").disabled = false;
+}
+
+async function preparerAcces() {
+  const etat = await desktop.permissions.state("full-access").catch(() => "unavailable");
+  if (etat === "granted") return lanceur();
+  montrer("vue-acces");
+  $("gerer").hidden = etat !== "denied";
+  $("autoriser").hidden = etat === "denied";
+  if (etat === "unavailable") {
+    $("autoriser").hidden = true;
+    $("vue-acces").querySelector("p").textContent =
+      "L'accès à ce PC n'est pas disponible pour le moment (connexion en cours, ou une autre organisation est choisie dans Claude). Réessaie dans un instant.";
+  }
+}
+
+async function lanceur() {
+  montrer("vue-lanceur", "vue-verifs");
+  separateur = (await desktop.os.platform().catch(() => "")) === "win32" ? "\\" : "/";
+  const maison = await desktop.os.homedir().catch(() => "");
+  $("dossier").value = lireReglage() || (maison ? chemin(maison, "hey-kit") : "");
+  etatKit(false);
+  await verifier();
+}
+
+async function demarrage() {
+  desktop = await claude.use("desktop");
+  if (!desktop?.fs) {
+    montrer("vue-installer");
+    const etat = await desktop?.install?.state().catch(() => "unavailable");
+    if (etat !== "available") {
+      $("installer").hidden = true;
+      $("texte-installer").textContent = etat === "installed"
+        ? "L'app est déjà installée sur ce PC : ouvre « hey-kit » depuis le menu Démarrer ou la barre des tâches."
+        : "Ce lanceur ne marche que dans son app, à installer depuis l'app Claude pour Windows ou Mac.";
+    }
+    return;
+  }
+  desktop.app.dock.setIcon($("icone").toDataURL("image/png")).catch(() => {});
+  desktop.window.setOptions({ width: 640, height: 760 }).catch(() => {});
+  await preparerAcces();
+}
+
+$("installer").addEventListener("click", async () => {
+  const resultat = await desktop?.install.request().catch(() => "failed");
+  if (resultat === "failed" || resultat === "unavailable") $("texte-installer").textContent = "L'installation n'a pas abouti. Réessaie depuis le menu de l'artefact dans l'app Claude.";
+});
+$("autoriser").addEventListener("click", async () => {
+  await desktop.permissions.request(["full-access"]).catch(() => {});
+  await preparerAcces();
+});
+$("gerer").addEventListener("click", async () => {
+  await desktop.permissions.manage().catch(() => {});
+  await preparerAcces();
+});
+$("verifier").addEventListener("click", verifier);
+$("dossier").addEventListener("keydown", (e) => { if (e.key === "Enter") verifier(); });
+$("telecharger").addEventListener("click", telecharger);
+$("mettre-a-jour").addEventListener("click", mettreAJour);
+$("demarrer").addEventListener("click", demarrer);
+$("arreter").addEventListener("click", arreter);
+
+// Icône : un carré bleu et une serrure blanche, dessinés ici.
+function dessinerIcone() {
+  const c = $("icone").getContext("2d");
+  const degrade = c.createLinearGradient(0, 0, 256, 256);
+  degrade.addColorStop(0, "#5b7cf0");
+  degrade.addColorStop(1, "#3046b8");
+  c.fillStyle = degrade;
+  c.beginPath();
+  c.roundRect(0, 0, 256, 256, 56);
+  c.fill();
+  c.strokeStyle = "#ffffff";
+  c.lineWidth = 20;
+  c.beginPath();
+  c.arc(128, 108, 38, Math.PI, 0);
+  c.lineTo(166, 128);
+  c.moveTo(90, 108);
+  c.lineTo(90, 128);
+  c.stroke();
+  c.fillStyle = "#ffffff";
+  c.beginPath();
+  c.roundRect(66, 122, 124, 92, 18);
+  c.fill();
+  c.fillStyle = "#3046b8";
+  c.beginPath();
+  c.arc(128, 160, 13, 0, Math.PI * 2);
+  c.fill();
+  c.fillRect(122, 164, 12, 28);
+}
+
+demarrage().catch(() => montrer("vue-installer"));
+</script>
