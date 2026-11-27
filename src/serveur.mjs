@@ -17,6 +17,7 @@ import path from "node:path";
 import { ErreurCoffre } from "./coffre.mjs";
 import { APPS, afficher, empreinteAndroid, envoyerApp, etatApp, importerAncien, saisir } from "./apps.mjs";
 import { CONNEXIONS, DOSSIER_COMMUN, connexion, formatValide, verifier } from "./connexions.mjs";
+import { creerCompilations } from "./compilation.mjs";
 import { creerOutils } from "./outils.mjs";
 import { lirePlantages, rapport } from "./plantages.mjs";
 
@@ -87,7 +88,9 @@ export function creerServeur({
   accueil,
   delaiVerrouillage = 15 * 60_000,
   maintenant = Date.now,
+  windows = process.platform === "win32",
 }) {
+  const compilations = creerCompilations({ coffre, outils, dossierKit: path.dirname(coffre.fichier), fetchFn, windows });
   const session = randomBytes(32).toString("base64url");
   let derniereActivite = maintenant();
   let port = null;
@@ -189,7 +192,13 @@ export function creerServeur({
       if (!coffre.ouvert) throw new ErreurCoffre("verrouille");
       return { verification: await verifierEtNoter(id) };
     },
-    "GET /api/apps": async () => ({ apps: APPS.map(({ id, nom, crashlytics }) => ({ id, nom, plantages: Boolean(crashlytics) })) }),
+    "GET /api/apps": async () => ({
+      apps: APPS.map(({ id, nom, crashlytics, android }) => ({ id, nom, plantages: Boolean(crashlytics), compilation: Boolean(android) })),
+    }),
+    "POST /api/compilation/etat": async ({ id }) => compilations.etat(id),
+    "POST /api/compilation/lancer": async ({ id }) => compilations.lancer(id),
+    "POST /api/compilation/arreter": async ({ id }) => compilations.arreter(id),
+    "POST /api/compilation/ouvrir": async ({ id }) => compilations.ouvrir(id),
     "POST /api/apps/etat": async ({ id }) => etatApp(coffre, id, { fetchFn }),
     "POST /api/apps/saisir": async ({ id, nom, valeur, nomFichier }) => saisir(coffre, id, nom, { valeur, nomFichier }),
     "POST /api/apps/envoyer": async ({ id, remplacer }) => {

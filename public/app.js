@@ -22,6 +22,9 @@ const ERREURS = {
   "keystore-alias": "Le fichier de la clé Android ne contient pas la clé « heywatchlist ». Rien n'a été modifié.",
   "keystore-absent": "La clé Android n'est pas dans le coffre : reprends l'ancienne sauvegarde ou lance un envoi.",
   "requete-invalide": "Requête refusée par le kit.",
+  "windows-seulement": "La compilation sur ce PC ne marche que sous Windows.",
+  "compilation-en-cours": "Une compilation tourne déjà : attends qu'elle finisse ou arrête-la.",
+  "apk-absent": "Aucun APK compilé pour l'instant.",
   session: "Session expirée : relance le kit et ouvre le nouveau lien.",
   reseau: "Le kit ne répond plus : la fenêtre où il tourne a peut-être été fermée.",
 };
@@ -199,8 +202,8 @@ let etat = null;
 let onglet = "connexions";
 
 function montrer(vue) {
-  for (const id of ["creer", "ouvrir", "connexions", "apps", "plantages", "coffre", "reglages"]) $(`#vue-${id}`).hidden = id !== vue;
-  const ouvert = ["connexions", "apps", "plantages", "coffre", "reglages"].includes(vue);
+  for (const id of ["creer", "ouvrir", "connexions", "apps", "plantages", "compilation", "coffre", "reglages"]) $(`#vue-${id}`).hidden = id !== vue;
+  const ouvert = ["connexions", "apps", "plantages", "compilation", "coffre", "reglages"].includes(vue);
   $("#onglets").hidden = !ouvert;
   $("#verrouiller").hidden = !ouvert;
   for (const bouton of document.querySelectorAll("[data-onglet]")) {
@@ -231,6 +234,7 @@ async function afficherOnglet(nom) {
   if (nom === "connexions") await afficherConnexions();
   if (nom === "apps") await afficherApps();
   if (nom === "plantages") await afficherPlantages();
+  if (nom === "compilation") await afficherCompilation();
   if (nom === "coffre") await afficherCoffre();
 }
 
@@ -1020,6 +1024,170 @@ async function afficherPlantages() {
     vues.push(vuePlantages(app, resultat));
   }
   $("#liste-plantages").replaceChildren(...vues);
+}
+
+// --- Compiler ---------------------------------------------------------------------
+
+const ETAPES_COMPILATION = [
+  ["ubuntu", "Ubuntu (WSL)"],
+  ["paquets", "Java et outils de base"],
+  ["sdk", "SDK et NDK Android"],
+  ["rust", "Rust"],
+  ["depot", "Code de l'app (GitHub)"],
+  ["compilation", "Compilation et signature"],
+  ["copie", "Copie des APK"],
+];
+
+const ECHECS_COMPILATION = {
+  redemarrer: "Windows a installé WSL : redémarre le PC, puis clique à nouveau sur « Compiler ». Le kit reprendra où il en était.",
+  ubuntu: "L'installation d'Ubuntu (WSL) a échoué. Si Windows a demandé une autorisation, accepte-la ; sinon envoie le journal à Claude.",
+  apt: "Ubuntu n'a pas pu installer Java et les outils de base (réseau ?). Réessaie ; si ça recommence, envoie le journal à Claude.",
+  telechargement: "Le téléchargement des outils Android a échoué (réseau, proxy ou antivirus). Réessaie plus tard.",
+  empreinte: "Le fichier des outils Android téléchargé ne correspond pas à celui publié par Google : rien n'a été installé. Envoie ce message à Claude.",
+  licences: "Les licences du SDK Android n'ont pas pu être acceptées. Envoie le journal à Claude.",
+  sdk: "L'installation du SDK ou du NDK Android a échoué (réseau ?). Réessaie ; si ça recommence, envoie le journal à Claude.",
+  rustup: "L'installation de Rust a échoué (réseau ?). Réessaie plus tard.",
+  rust: "La chaîne Rust du projet n'a pas pu être installée. Envoie le journal à Claude.",
+  "cargo-ndk": "L'outil cargo-ndk n'a pas pu être installé. Envoie le journal à Claude.",
+  depot: "Le code de l'app n'a pas pu être téléchargé depuis GitHub (réseau ?). Réessaie plus tard.",
+  keystore: "La clé de signature du coffre est illisible. Envoie ce message à Claude.",
+  gradle: "La compilation a échoué : copie le journal et envoie-le à Claude.",
+  apk: "La compilation n'a produit aucun APK. Envoie le journal à Claude.",
+  copie: "Les APK n'ont pas pu être copiés dans le dossier Documents\\hey-kit\\apk (disque plein ?).",
+  parametre: "Le kit a mal préparé la compilation. Envoie ce message à Claude.",
+  inconnu: "La compilation s'est arrêtée sans dire pourquoi. Copie le journal et envoie-le à Claude.",
+};
+
+const AVERTISSEMENTS_COMPILATION = {
+  "sans-api": "Adresse de l'API introuvable sur GitHub (variable HEYWATCHLIST_API_URL) : l'app se compile, mais ne saura pas joindre le serveur.",
+  "sans-notifications": "google-services.json absent du coffre : l'app se compile, sans notifications.",
+};
+
+let minuterieCompilation = null;
+
+function duree(debut, fin) {
+  const secondes = Math.max(0, Math.round(((fin ?? Date.now()) - debut) / 1000));
+  return secondes < 60 ? `${secondes} s` : `${Math.floor(secondes / 60)} min ${String(secondes % 60).padStart(2, "0")}`;
+}
+
+function listeEtapes(tache) {
+  const vues = new Map(tache.etapes.map((etape) => [etape.nom, etape]));
+  const derniere = tache.etapes.at(-1)?.nom;
+  return element(
+    "ol",
+    { classe: "etapes" },
+    ...ETAPES_COMPILATION.map(([nom, libelle]) => {
+      const etape = vues.get(nom);
+      let signe = "○";
+      if (etape?.fin) signe = "✓";
+      if (etape && nom === derniere && tache.etat === "en-cours") signe = "✱";
+      if (etape && nom === derniere && tache.etat === "echec") signe = "✗";
+      const temps = etape ? ` · ${duree(etape.debut, etape.fin)}` : "";
+      return element("li", { texte: `${signe} ${libelle}${temps}` });
+    }),
+  );
+}
+
+function journalPourClaude(app, tache) {
+  return [
+    `# Compilation ${app.nom} sur le PC (${tache.etat}${tache.echec ? `, ${tache.echec}` : ""})`,
+    "",
+    `Étapes : ${tache.etapes.map((e) => `${e.nom} ${duree(e.debut, e.fin)}`).join(", ") || "aucune"}`,
+    "",
+    "```",
+    ...tache.journal.slice(-120),
+    "```",
+  ].join("\n");
+}
+
+function vueCompilation(app, tache) {
+  const enCours = tache.etat === "en-cours";
+  const badge = {
+    repos: ["attente", "Pas encore lancé"],
+    "en-cours": ["attente", `En cours · ${tache.debut ? duree(tache.debut, null) : ""}`],
+    ok: ["ok", `APK prêts${tache.version ? ` · v${tache.version}` : ""}`],
+    echec: ["erreur", "Échec"],
+    arrete: ["attente", "Arrêté"],
+  }[tache.etat] ?? ["attente", tache.etat];
+
+  const boutons = element(
+    "div",
+    { classe: "ligne" },
+    enCours
+      ? boutonAction("Arrêter", async () => {
+          await api("/api/compilation/arreter", { id: app.id });
+          await afficherCompilation();
+        })
+      : boutonAction(
+          tache.etat === "repos" ? "Compiler les deux APK" : "Compiler à nouveau",
+          async () => {
+            await api("/api/compilation/lancer", { id: app.id });
+            await afficherCompilation();
+          },
+          "bouton",
+        ),
+    boutonAction("Ouvrir le dossier des APK", () => api("/api/compilation/ouvrir", { id: app.id })),
+    tache.journal.length > 0
+      ? boutonAction("Copier le journal pour Claude", async () => {
+          if (await copier(journalPourClaude(app, tache))) annoncer("Journal copié : colle-le dans la discussion.", "ok");
+          else annoncer("Copie automatique refusée par le navigateur : ouvre « Voir le journal » et copie-le.");
+        })
+      : null,
+  );
+
+  const journal = element("pre", { classe: "rapport journal", texte: tache.journal.slice(-25).join("\n") });
+  return element(
+    "div",
+    { classe: "carte" },
+    element(
+      "div",
+      { classe: "entete" },
+      element("h2", { texte: app.nom }),
+      element("div", { classe: "etat" }, element("span", { classe: `badge ${badge[0]}`, texte: badge[1] })),
+    ),
+    tache.etat === "repos"
+      ? element("p", {
+          classe: "discret",
+          texte:
+            "Donne les deux APK signés (public et admin), avec la clé Android du coffre. La première fois, le kit installe Ubuntu et les outils : compte 30 à 60 minutes et une dizaine de Go. Les fois suivantes, quelques minutes.",
+        })
+      : null,
+    ...(tache.avertissements ?? []).map((code) => element("p", { classe: "discret", texte: AVERTISSEMENTS_COMPILATION[code] ?? code })),
+    tache.etat === "echec"
+      ? element("p", { classe: "avertissement", texte: ECHECS_COMPILATION[tache.echec] ?? ECHECS_COMPILATION.inconnu })
+      : null,
+    tache.etat === "ok"
+      ? element("p", { classe: "discret", texte: `APK dans ${tache.sortie}${tache.version ? `\\${tache.version}` : ""}.` })
+      : null,
+    tache.etat === "repos" ? null : listeEtapes(tache),
+    boutons,
+    tache.journal.length > 0
+      ? element("details", { classe: "guide", ...(enCours ? { open: true } : {}) }, element("summary", { texte: "Voir le journal" }), journal)
+      : null,
+  );
+}
+
+async function afficherCompilation() {
+  clearTimeout(minuterieCompilation);
+  const { apps } = await api("/api/apps");
+  const vues = [];
+  let enCours = false;
+  for (const app of apps.filter((item) => item.compilation)) {
+    const tache = await api("/api/compilation/etat", { id: app.id });
+    enCours ||= tache.etat === "en-cours";
+    vues.push(vueCompilation(app, tache));
+  }
+  // Garde le journal ouvert ou fermé d'un rafraîchissement à l'autre.
+  const ouverts = [...document.querySelectorAll("#liste-compilation details")].map((d) => d.open);
+  $("#liste-compilation").replaceChildren(...vues);
+  [...document.querySelectorAll("#liste-compilation details")].forEach((d, i) => {
+    if (ouverts[i] !== undefined) d.open = ouverts[i];
+  });
+  if (enCours) {
+    minuterieCompilation = setTimeout(() => {
+      if (onglet === "compilation") afficherCompilation().catch((probleme) => annoncer(erreurTexte(probleme.message), "erreur"));
+    }, 3000);
+  }
 }
 
 // --- Coffre ---------------------------------------------------------------------

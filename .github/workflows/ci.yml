@@ -18,5 +18,7 @@ jobs:
           node-version: 24
       - name: Syntaxe
         run: for f in kit.mjs src/*.mjs public/app.js test/*.mjs; do node --check "$f"; done
+      - name: Scripts bash
+        run: shellcheck scripts/*.sh
       - name: Tests
         run: npm test

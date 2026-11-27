@@ -1,6 +1,7 @@
 // Programmes du PC dont le kit a besoin : GitHub CLI (`gh`), pour chiffrer et
-// envoyer les secrets GitHub, et `keytool` (Java), pour la clé de signature
-// Android. Aucun n'est installé par le kit.
+// envoyer les secrets GitHub, `keytool` (Java), pour la clé de signature
+// Android, et `wsl.exe`, pour compiler les apps dans Ubuntu. Seul Ubuntu (WSL)
+// est installé par le kit, à la demande (onglet Compiler).
 //
 // Les valeurs secrètes passent par l'entrée standard ou par une variable
 // d'environnement du programme lancé, jamais sur la ligne de commande (qu'un
@@ -42,6 +43,35 @@ export function executer(commande, args, { entree, env = {}, cwd = DOSSIER_SUR }
   });
 }
 
+// Lance un programme long sans délai, en passant sa sortie ligne par ligne à
+// `surLigne`. Rend { fin: Promise<code>, arreter() } ; code -1 si introuvable.
+export function lancer(commande, args, { entree, env = {}, surLigne = () => {} } = {}) {
+  let enfant;
+  try {
+    enfant = spawn(commande, args, { cwd: DOSSIER_SUR, env: { ...process.env, ...env }, windowsHide: true, shell: false });
+  } catch {
+    return { fin: Promise.resolve(-1), arreter: () => {} };
+  }
+  const decouper = () => {
+    let reste = "";
+    return (morceau) => {
+      // wsl.exe écrit ses propres messages en UTF-16 : on retire les octets nuls.
+      const lignes = (reste + morceau.toString("utf8").replaceAll("\0", "")).split(/\r?\n|\r/);
+      reste = lignes.pop() ?? "";
+      for (const ligne of lignes) if (ligne.trim() !== "") surLigne(ligne);
+    };
+  };
+  enfant.stdout.on("data", decouper());
+  enfant.stderr.on("data", decouper());
+  const fin = new Promise((resolve) => {
+    enfant.on("error", () => resolve(-1));
+    enfant.on("close", (code) => resolve(code ?? -1));
+  });
+  enfant.stdin.on("error", () => {});
+  enfant.stdin.end(entree ?? "");
+  return { fin, arreter: () => enfant.kill() };
+}
+
 const sousDossiers = (dossier) => {
   try {
     return fs
@@ -52,6 +82,9 @@ const sousDossiers = (dossier) => {
     return [];
   }
 };
+
+export const WSL = WINDOWS ? path.join(DOSSIER_SUR, "wsl.exe") : "wsl.exe";
+export const EXPLORATEUR = WINDOWS ? path.join(process.env.SystemRoot ?? "C:\\Windows", "explorer.exe") : "explorer.exe";
 
 const racinesProgrammes = () => [process.env.ProgramFiles, process.env["ProgramFiles(x86)"]].filter(Boolean);
 
@@ -83,7 +116,7 @@ function candidatsKeytool() {
 
 // Trouve les programmes une fois, au premier besoin. `executerFn` est
 // remplaçable dans les tests.
-export function creerOutils(executerFn = executer) {
+export function creerOutils(executerFn = executer, lancerFn = lancer) {
   const trouves = new Map();
   const trouver = async (nom, candidats, args) => {
     if (trouves.has(nom)) return trouves.get(nom);
@@ -97,6 +130,7 @@ export function creerOutils(executerFn = executer) {
   };
   return {
     executer: executerFn,
+    lancer: lancerFn,
     gh: () => trouver("gh", candidatsGh(), ["--version"]),
     keytool: () => trouver("keytool", candidatsKeytool(), ["-help"]),
     oublier: () => trouves.clear(),

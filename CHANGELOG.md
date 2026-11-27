@@ -1,5 +1,16 @@
 # Journal des versions
 
+## 0.4.0 — 2026-11-27
+
+- Onglet « Compiler » : les deux APK signés de HeyWatchlist (public et admin)
+  compilés sur le PC, dans Ubuntu 24.04 (WSL), avec les versions de la CI du
+  dépôt (JDK 17, NDK 27.3, cargo-ndk 4.1.2, chaîne Rust du dépôt). Le kit
+  installe Ubuntu et les outils au premier lancement, met le code à jour depuis
+  GitHub, signe avec la clé du coffre et range les APK dans
+  `Documents\hey-kit\apk`. Étapes et journal en direct, bouton « Arrêter »,
+  journal sans secret à copier pour Claude.
+- Barre d'onglets lisible sur un écran étroit.
+
 ## 0.3.1 — 2026-11-27
 
 - Plantages : le kit vérifie d'abord l'export (liste des tables du dataset

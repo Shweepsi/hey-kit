@@ -50,6 +50,7 @@ dans l'app Claude pour Windows, puis « Installer l'app »).
 | Connexions | GitHub, Cloudflare, Apple, Google (Firebase), TMDB : guide pas à pas, saisie, vérification en lecture seule. |
 | Mes apps | Pour HeyWatchlist : ce que GitHub (secrets, variables) et le Worker attendent, envoi de ce qui manque, création des clés internes, guides Google et Apple pour le reste. |
 | Plantages | Plantages Crashlytics de HeyWatchlist, lus dans l'export BigQuery, et rapport sans secret à copier pour Claude. |
+| Compiler | Les deux APK signés de HeyWatchlist compilés sur ce PC, dans Ubuntu (WSL), avec les mêmes outils que la CI. |
 | Coffre | Liste des clés par dossier (sans les valeurs), ajout, remplacement, suppression. |
 | Réglages | Emplacement du coffre, changement du mot de passe maître. |
 
@@ -62,6 +63,16 @@ Android, clé des réglages admin, phrase des certificats iOS) n'est jamais
 remplacée une fois en place. Le bouton « Reprendre l'ancienne sauvegarde »
 récupère ce que les anciens scripts PowerShell ont laissé dans
 `~/HeyWatchlist-secrets`, sans rien effacer.
+
+« Compiler » installe, au premier lancement et une seule fois, Ubuntu 24.04
+dans WSL (`wsl --install`, Windows peut demander une autorisation puis un
+redémarrage), puis dans Ubuntu : Java 17, le SDK et le NDK Android (outils
+officiels de Google, empreinte vérifiée), Rust et cargo-ndk, aux versions de la
+CI du dépôt. Compter 30 à 60 minutes et une dizaine de Go la première fois.
+Le code est cloné dans Ubuntu (`/root/hey-kit`), la clé de signature passe du
+coffre au script par l'environnement et n'est écrite qu'en mémoire le temps de
+la compilation. Les APK arrivent dans `Documents\hey-kit\apk\<app>\<version>`.
+Script : `scripts/android-wsl.sh`.
 
 Les guides citent la documentation officielle de chaque service et la date à
 laquelle ils ont été relus.

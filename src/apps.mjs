@@ -41,6 +41,17 @@ const HEYWATCHLIST = {
   // Plantages : export BigQuery de Crashlytics du projet Firebase. Les tables
   // portent le nom du paquet, points changés en « _ » (app publique et admin).
   crashlytics: { projet: "heywatchlist-60448", tables: "io_github_shweepsi_heywatchlist" },
+  // Compilation sur le PC : mêmes versions que .github/actions/setup-android
+  // du dépôt (relu le 2026-11-27). Les deux APK signés, sans l'AAB.
+  android: {
+    taches: ["assembleAdminRelease", "assemblePublicRelease"],
+    cibles: ["aarch64-linux-android", "x86_64-linux-android"],
+    ndk: "27.3.13750724",
+    cargoNdk: "4.1.2",
+    // Réglages lus par Gradle, comme sur la CI ; absents, l'app se compile quand même.
+    variable: "HEYWATCHLIST_API_URL",
+    servicesGoogle: "GOOGLE_SERVICES_JSON",
+  },
   // Sauvegarde laissée sur le PC par les anciens scripts PowerShell.
   ancien: {
     dossier: "HeyWatchlist-secrets",

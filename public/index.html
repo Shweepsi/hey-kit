@@ -16,6 +16,7 @@
         <button type="button" data-onglet="connexions" aria-pressed="true">Connexions</button>
         <button type="button" data-onglet="apps" aria-pressed="false">Mes apps</button>
         <button type="button" data-onglet="plantages" aria-pressed="false">Plantages</button>
+        <button type="button" data-onglet="compilation" aria-pressed="false">Compiler</button>
         <button type="button" data-onglet="coffre" aria-pressed="false">Coffre</button>
         <button type="button" data-onglet="reglages" aria-pressed="false">Réglages</button>
       </nav>
@@ -87,6 +88,15 @@
           sans secret ni donnée personnelle, à coller tel quel dans la discussion avec Claude.
         </p>
         <div id="liste-plantages"></div>
+      </section>
+
+      <section id="vue-compilation" hidden>
+        <h1>Compiler sur ce PC</h1>
+        <p class="intro">
+          Les APK signés de tes apps, compilés ici plutôt que sur GitHub. Le kit travaille dans Ubuntu (WSL), le même
+          système que la compilation sur GitHub, avec les mêmes outils et la clé de signature du coffre.
+        </p>
+        <div id="liste-compilation"></div>
       </section>
 
       <!-- Contenu du coffre -->

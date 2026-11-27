@@ -165,7 +165,7 @@ test("parcours : créer, enregistrer une connexion, vérifier, verrouiller", asy
 });
 
 test("Mes apps : liste, valeurs jamais lisibles sauf le code administrateur", async () => {
-  assert.deepEqual((await api("GET", "/api/apps")).json.apps, [{ id: "heywatchlist", nom: "HeyWatchlist", plantages: true }]);
+  assert.deepEqual((await api("GET", "/api/apps")).json.apps, [{ id: "heywatchlist", nom: "HeyWatchlist", plantages: true, compilation: true }]);
   assert.equal((await api("POST", "/api/apps/afficher", { id: "heywatchlist", nom: "CREDENTIALS_KEY" })).json.erreur, "requete-invalide");
   assert.equal((await api("POST", "/api/apps/etat", { id: "inconnue" })).statut, 400);
   assert.equal((await api("POST", "/api/coffre/verrouiller", {})).statut, 200);
