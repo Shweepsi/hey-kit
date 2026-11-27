@@ -443,6 +443,8 @@ const SAISIES = [
     titre: "Connexion avec Google",
     elements: ["GOOGLE_WEB_CLIENT_ID", "GOOGLE_IOS_CLIENT_ID"],
     empreinte: true,
+    resteAVerifier:
+      "Les deux clients que le serveur utilise sont en place. Le kit ne peut pas voir le reste de la console Google : vérifie sur la page Clients que les deux clients Android existent (paquets io.github.shweepsi.heywatchlist et .admin, avec l'empreinte SHA-1 ci-dessous), et sur la page Audience que l'état est « In production ».",
     liens: [
       ["Branding", pageGoogle("branding")],
       ["Audience", pageGoogle("audience")],
@@ -629,7 +631,11 @@ function carteSaisie(app, saisie) {
       "div",
       { classe: "entete" },
       element("h2", { texte: saisie.titre }),
-      element("div", { classe: "etat" }, ...elements.map(badgeElement)),
+      element(
+        "div",
+        { classe: "etat" },
+        element("span", { classe: `badge ${complet ? "ok" : "attente"}`, texte: complet ? "En place" : "À faire" }),
+      ),
     ),
     element(
       "div",
@@ -640,6 +646,9 @@ function carteSaisie(app, saisie) {
     ),
     guide(saisie, !complet),
   );
+  if (complet && saisie.resteAVerifier) {
+    formulaire.append(element("p", { classe: "discret", texte: saisie.resteAVerifier }));
+  }
   if (saisie.empreinte) {
     const zone = element("p", { classe: "discret" });
     formulaire.append(
@@ -650,6 +659,9 @@ function carteSaisie(app, saisie) {
       zone,
     );
   }
+  // Tout est en place : les champs ne servent plus qu'à remplacer une valeur.
+  const champs = complet ? element("details", { classe: "guide" }, element("summary", { texte: "Remplacer une valeur" })) : formulaire;
+  if (complet) formulaire.append(champs);
   for (const el of elements) {
     // L'identifiant d'une clé Apple est lu dans le nom du fichier AuthKey_….p8.
     const luDansFichier = /_KEY_ID$/.test(el.nom) && elements.some((autre) => autre.fichier === "p8");
@@ -662,15 +674,19 @@ function carteSaisie(app, saisie) {
           autocomplete: "off",
           spellcheck: "false",
           placeholder: el.local
-            ? "Enregistré (laisser vide pour garder)"
-            : luDansFichier
-              ? "Lu dans le nom du fichier, sinon 10 caractères"
-              : "",
+            ? "Enregistré dans le coffre (laisser vide pour garder)"
+            : el.etat === "en-place"
+              ? "Déjà en place (laisser vide pour garder)"
+              : luDansFichier
+                ? "Lu dans le nom du fichier, sinon 10 caractères"
+                : "",
         });
-    formulaire.append(element("label", {}, libelle, saisieChamp));
+    champs.append(
+      element("label", {}, element("span", { classe: "libelle-etat" }, libelle, " ", badgeElement(el)), saisieChamp),
+    );
   }
   const bouton = element("button", { type: "submit", classe: "bouton", texte: "Enregistrer et envoyer" });
-  formulaire.append(bouton);
+  champs.append(bouton);
   formulaire.addEventListener("submit", async (evenement) => {
     evenement.preventDefault();
     bouton.disabled = true;

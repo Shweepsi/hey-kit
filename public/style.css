@@ -369,3 +369,10 @@ a {
 .defile td code {
   word-break: normal;
 }
+
+.libelle-etat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
