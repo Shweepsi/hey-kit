@@ -70,6 +70,10 @@ const HEYWATCHLIST = {
     { nom: "GOOGLE_SERVICES_JSON", vers: ["secret"], source: { type: "saisie", fichier: "google-services" } },
     // CI : envoi de l'AAB public sur le test fermé Google Play
     { nom: "PLAY_SERVICE_ACCOUNT_JSON", vers: ["secret"], source: { type: "saisie", fichier: "compte-service" } },
+    // CI : APK admin privé par Firebase App Distribution (le dépôt est public).
+    // Les testeurs sont un secret : leur e-mail ne doit pas finir dans un journal public.
+    { nom: "FIREBASE_DISTRIBUTION_KEY", vers: ["secret"], source: { type: "saisie", fichier: "compte-service" } },
+    { nom: "FIREBASE_TESTERS", vers: ["secret"], source: { type: "saisie", format: "e-mail" } },
     // Worker
     { nom: "SESSION_SIGNING_KEY", vers: ["worker"], source: { type: "genere", genre: "cle32" } },
     { nom: "CREDENTIALS_KEY", vers: ["worker"], source: { type: "genere", genre: "cle32", conserver: true } },
