@@ -130,6 +130,8 @@ test("premier envoi : tout ce qui est disponible part, rien n'est relu", async (
     "APNS_PRIVATE_KEY",
     "APPLE_SIGNIN_KEY_ID",
     "APPLE_SIGNIN_PRIVATE_KEY",
+    "FIREBASE_DISTRIBUTION_KEY",
+    "FIREBASE_TESTERS",
     "GOOGLE_IOS_CLIENT_ID",
     "GOOGLE_SERVICES_JSON",
     "GOOGLE_WEB_CLIENT_ID",
@@ -215,6 +217,11 @@ test("saisie : formats vérifiés, identifiant de clé Apple lu dans le nom du f
   assert.equal((await saisir(coffre, "heywatchlist", "PLAY_SERVICE_ACCOUNT_JSON", { valeur: compte({ private_key: "abîmée" }) })).etat, "invalide");
   assert.equal((await saisir(coffre, "heywatchlist", "PLAY_SERVICE_ACCOUNT_JSON", { valeur: b64("pas du json") })).etat, "invalide");
   assert.equal((await saisir(coffre, "heywatchlist", "PLAY_SERVICE_ACCOUNT_JSON", { valeur: compte({}) })).etat, "ok");
+  // Compte de service App Distribution : même vérification.
+  assert.equal((await saisir(coffre, "heywatchlist", "FIREBASE_DISTRIBUTION_KEY", { valeur: compte({ type: "authorized_user" }) })).etat, "invalide");
+  assert.equal((await saisir(coffre, "heywatchlist", "FIREBASE_DISTRIBUTION_KEY", { valeur: compte({}) })).etat, "ok");
+  assert.equal((await saisir(coffre, "heywatchlist", "FIREBASE_TESTERS", { valeur: "moi" })).etat, "invalide");
+  assert.equal((await saisir(coffre, "heywatchlist", "FIREBASE_TESTERS", { valeur: "moi@example.com" })).etat, "ok");
 
   assert.equal((await saisir(coffre, "heywatchlist", "PRIVACY_CONTACT", { valeur: "pas une adresse" })).etat, "invalide");
   assert.equal((await saisir(coffre, "heywatchlist", "PRIVACY_CONTACT", { valeur: " contact@example.com " })).etat, "ok");

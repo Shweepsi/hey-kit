@@ -1,5 +1,15 @@
 # Journal des versions
 
+## 0.5.0 — 2026-11-28
+
+- Mes apps, HeyWatchlist : l'APK admin part par Firebase App Distribution
+  (le dépôt de l'app est public, ses artefacts aussi). Deux secrets GitHub :
+  `FIREBASE_DISTRIBUTION_KEY`, la clé JSON du compte de service au rôle
+  « Firebase App Distribution Admin », vérifiée avant l'envoi, et
+  `FIREBASE_TESTERS`, l'e-mail qui reçoit l'APK (secret, pour ne jamais
+  paraître dans un journal public).
+- Guide « APK admin privé (Firebase App Distribution) », avec ses sources.
+
 ## 0.4.0 — 2026-11-27
 
 - Mes apps, HeyWatchlist : deux nouvelles valeurs pour la publication.

@@ -381,6 +381,8 @@ const ELEMENTS = {
   APNS_KEY_ID: "Clé APNs : Key ID",
   APNS_PRIVATE_KEY: "Clé APNs : fichier .p8",
   PLAY_SERVICE_ACCOUNT_JSON: "Compte de service Google Play (fichier .json)",
+  FIREBASE_DISTRIBUTION_KEY: "Compte de service App Distribution (fichier .json)",
+  FIREBASE_TESTERS: "Ton e-mail (reçoit l'APK admin)",
   PRIVACY_CONTACT: "E-mail de contact (politique de confidentialité)",
 };
 
@@ -513,6 +515,30 @@ const SAISIES = [
     ],
     sources: [
       ["API Google Play Developer, premiers pas", "https://developers.google.com/android-publisher/getting_started"],
+      ["Créer une clé de compte de service", "https://docs.cloud.google.com/iam/docs/keys-create-delete"],
+    ],
+  },
+  {
+    titre: "APK admin privé (Firebase App Distribution)",
+    elements: ["FIREBASE_DISTRIBUTION_KEY", "FIREBASE_TESTERS"],
+    liens: [
+      ["App Distribution", `https://console.firebase.google.com/project/${PROJET_GOOGLE}/appdistribution`],
+      ["Comptes de service", `https://console.cloud.google.com/iam-admin/serviceaccounts?project=${PROJET_GOOGLE}`],
+    ],
+    etapes: [
+      `Console Firebase, App Distribution : vérifie que le projet est ${PROJET_GOOGLE}, choisis l'app « HeyWatchlist Admin » (io.github.shweepsi.heywatchlist.admin) dans le sélecteur d'app, puis « Get started ».`,
+      "Comptes de service : « Create service account », nom « HeyWatchlist App Distribution ». À l'étape des rôles, choisis « Firebase App Distribution Admin », puis Done.",
+      "Clique sur ce compte, onglet Keys, « Add key » > « Create new key », type JSON, Create. Glisse le fichier ci-dessous, puis supprime-le de Téléchargements.",
+      "Saisis ton adresse e-mail : c'est elle qui reçoit chaque nouvel APK admin. Puis « Envoyer ».",
+      "Au premier envoi par la CI, Firebase t'écrit : ouvre ce mail sur ton téléphone et accepte l'invitation pour installer l'APK.",
+    ],
+    attention: [
+      "Non confirmé par la documentation : qu'aucun autre rôle ne soit nécessaire pour envoyer un build. « Firebase App Distribution Admin » est le rôle d'accès complet (lecture et écriture) d'App Distribution.",
+      "Ce fichier permet d'envoyer une app sur ton téléphone : il ne va que dans le coffre et le secret GitHub, jamais dans un chat ni un dépôt.",
+    ],
+    sources: [
+      ["Distribuer une app Android avec la CLI", "https://firebase.google.com/docs/app-distribution/android/distribute-cli"],
+      ["Rôles Firebase par produit", "https://firebase.google.com/docs/projects/iam/roles-predefined-product"],
       ["Créer une clé de compte de service", "https://docs.cloud.google.com/iam/docs/keys-create-delete"],
     ],
   },
